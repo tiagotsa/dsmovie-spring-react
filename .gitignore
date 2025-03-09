@@ -1,0 +1,42 @@
+# IDE files
+.metadata/
+.vscode/
+.idea/
+.settings/
+.project
+.classpath
+
+# Dependencies
+node_modules/
+/target/
+**/target/
+.mvn/
+
+# Build files
+/bin/
+**/bin/
+/build/
+**/build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Package files
+package-lock.json
+yarn.lock
+
+# Misc
+.DS_Store
+*.swp
+*.swo
