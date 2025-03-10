@@ -89,17 +89,6 @@
 				<version>3.1.0</version>
 			</plugin>
 
-			<settings>
-  			<mirrors>
-    			<mirror>
-      			<id>central-mirror</id>
-      			<name>Maven Central Mirror</name>
-      			<url>https://repo1.maven.org/maven2/</url>  <!-- ou outro URL espelho -->
-      			<mirrorOf>central</mirrorOf>
-    			</mirror>
-  			</mirrors>
-			</settings>
-
 		</plugins>
 	</build>
 
