@@ -1,4 +1,3 @@
-
 # Etapa de construção
 FROM node:16-alpine as build
 
@@ -6,7 +5,7 @@ FROM node:16-alpine as build
 WORKDIR /app
 
 # Copia os arquivos de dependências
-COPY package.json yarn.lock ./
+COPY package.json ./
 
 # Instala as dependências do projeto
 RUN yarn install
