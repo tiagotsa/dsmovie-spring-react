@@ -35,8 +35,8 @@ jobs:
       - name: Install and Build Frontend
         env:
           CI: false  # Prevents treating warnings as errors
-        working-directory: ./frontend
         run: |
+          cd frontend
           yarn install --frozen-lockfile
           yarn build
 
