@@ -6,6 +6,9 @@ import {
 import Listing from 'pages/Listing';
 import Form from 'pages/Form';
 import Navbar from "components/Navbar";
+import 'bootstrap/dist/css/bootstrap.css';
+import './styles/overrides.css';
+import './App.css';
 
 function App() {
   return (
@@ -22,4 +25,3 @@ function App() {
 }
 
 export default App;
-
