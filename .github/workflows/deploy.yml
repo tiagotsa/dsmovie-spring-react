@@ -17,6 +17,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Set Maven Wrapper Permission
+        run: chmod +x backend/mvnw
+
       - name: Build Backend
         run: |
           cd backend
