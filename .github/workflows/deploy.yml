@@ -18,7 +18,9 @@ jobs:
           cache: maven
 
       - name: Set Maven Wrapper Permission
-        run: chmod +x backend/mvnw
+        run: |
+          git update-index --chmod=+x backend/mvnw
+          chmod +x backend/mvnw
 
       - name: Build Backend
         run: |
@@ -29,9 +31,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
-          working-directory: ./frontend
 
       - name: Install and Build Frontend
+        env:
+          CI: false  # Prevents treating warnings as errors
         working-directory: ./frontend
         run: |
           yarn install --frozen-lockfile
