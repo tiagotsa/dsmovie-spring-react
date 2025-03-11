@@ -76,5 +76,11 @@ jobs:
           echo "$VPS_SSH_KEY" > private_key
           chmod 600 private_key
 
-          # Conectando à VPS e rodando o comando docker-compose
-          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "cd /root/seu-projeto/caminho/do/seu/projeto && git pull && docker-compose up -d"
+          # Conectando à VPS, criando o diretório se necessário e rodando o comando docker-compose
+          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
+            # Certificando-se de que o diretório existe
+            mkdir -p /root/dsmovie-spring-react &&
+
+            # Entrando no diretório, fazendo pull do repositório e subindo os containers
+            cd /root/dsmovie-spring-react && git pull && docker-compose up -d
+          "
