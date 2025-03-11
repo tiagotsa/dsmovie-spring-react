@@ -26,12 +26,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '16'
+          working-directory: ./frontend
 
       - name: Install and Build Frontend
         working-directory: ./frontend
         run: |
-          npm install
-          npm run build
+          yarn install --frozen-lockfile
+          yarn build
 
       - name: Zip Frontend
         run: |
