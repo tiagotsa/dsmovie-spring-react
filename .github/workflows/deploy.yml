@@ -6,11 +6,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-connection:
+  deploy:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Create SSH key
+      - uses: actions/checkout@v2
+
+      - name: Set up SSH
         run: |
           mkdir -p ~/.ssh/
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
@@ -23,7 +25,7 @@ jobs:
             StrictHostKeyChecking no
           END
 
-      - name: Test SSH Connection
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -31,6 +33,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "✅ Teste de conexão SSH..."
-            whoami
-            pwd
+            echo " Iniciando deploy..."
+            cd /root/dsmovie-spring-react
+            git pull origin main
+            echo " Construindo e reiniciando containers..."
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up --build -d
+            echo " Deploy concluído!"
