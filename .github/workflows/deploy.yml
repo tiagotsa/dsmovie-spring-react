@@ -17,12 +17,18 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: maven
+      
+      - name: Setup Maven
+        uses: stCarolas/setup-maven@v4.5
+        with:
+          maven-version: '3.8.2'
       
       - name: Build Backend JAR
         working-directory: backend
         run: |
-          chmod +x mvnw
-          ./mvnw clean package -DskipTests
+          mvn -B -V clean package -DskipTests
+          ls -la target/
       
       - name: Deploy to VPS
         uses: appleboy/ssh-action@master
@@ -32,8 +38,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Configurar diretório
-            mkdir -p /opt/tsmovie
             cd /opt/tsmovie
             
             # Atualizar código
@@ -44,6 +48,9 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
+            # Parar e remover containers antigos
+            docker-compose -f docker-compose.prod.yml down
+            docker system prune -f
+            
             # Build e deploy
-            docker-compose -f docker-compose.prod.yml build --no-cache
-            docker-compose -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
