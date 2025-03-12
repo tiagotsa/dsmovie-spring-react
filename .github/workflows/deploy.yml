@@ -57,10 +57,59 @@ jobs:
           chmod 600 ~/.ssh/private.key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Check and Install Java on VPS
+        run: |
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            # Verificar se o Java está instalado
+            if ! command -v java &> /dev/null; then
+              echo "Installing Java 17..."
+              sudo apt-get update
+              sudo apt-get install -y openjdk-17-jdk
+            fi
+            
+            # Verificar a versão do Java
+            java -version
+          ENDSSH
+
       - name: Deploy Backend
         run: |
+          # Primeiro, criar os diretórios necessários no VPS
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "mkdir -p /home/${{ secrets.VPS_USERNAME }}/app/backend"
+          
+          # Copiar o arquivo JAR
           scp -i ~/.ssh/private.key backend/target/*.jar ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USERNAME }}/app/backend/
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "sudo systemctl restart tsmovie"
+          
+          # Configurar o serviço systemd se não existir
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            if [ ! -f /etc/systemd/system/tsmovie.service ]; then
+              echo "Creating systemd service..."
+              sudo tee /etc/systemd/system/tsmovie.service > /dev/null << EOF
+              [Unit]
+              Description=TSMovie Spring Boot Application
+              After=network.target postgresql.service
+              
+              [Service]
+              User=$USER
+              WorkingDirectory=/home/$USER/app/backend
+              ExecStart=/usr/bin/java -jar -Dspring.profiles.active=prod *.jar
+              SuccessExitStatus=143
+              TimeoutStopSec=10
+              Restart=on-failure
+              RestartSec=5
+              
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+              
+              sudo systemctl daemon-reload
+              sudo systemctl enable tsmovie
+            fi
+            
+            echo "Restarting tsmovie service..."
+            sudo systemctl restart tsmovie
+            echo "Service status:"
+            sudo systemctl status tsmovie --no-pager
+          ENDSSH
 
       - name: Build Frontend
         working-directory: frontend
