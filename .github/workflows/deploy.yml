@@ -1,6 +1,3 @@
-Aqui está o código YAML corretamente identado:
-
-```yaml
 name: Deploy to Production
 
 on:
@@ -75,13 +72,13 @@ jobs:
           etA3tmzAuHe/AAAAGnRpYWdvLmFsbWVpZGF0QG91dGxvb2suY29t
           -----END OPENSSH PRIVATE KEY-----"
 
+           # A chave privada SSH é lida do GitHub Secret
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+
           # Adicionar o GitHub à lista de hosts conhecidos (evitar erro de verificação da chave do host)
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-          # Salvando a chave privada em um arquivo temporário e definindo permissões
-          echo "$VPS_SSH_KEY" > private_key
-          chmod 600 private_key
 
           # Conectando à VPS, criando o diretório se necessário, clonando o repositório e rodando o comando docker-compose
           ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
@@ -90,9 +87,6 @@ jobs:
               git clone git@github.com:seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
             fi
 
+            # Navegar para o diretório e rodar docker-compose
             cd /root/dsmovie-spring-react && git pull && docker-compose up -d
-          "
-```
-
-Agora o código está adequadamente identado, mantendo a estrutura do YAML consistente. Isso deve facilitar a leitura e execução do arquivo sem erros.
-          "
+          
