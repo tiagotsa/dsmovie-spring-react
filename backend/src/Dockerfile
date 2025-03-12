@@ -1,28 +1,14 @@
-# Build stage
-FROM maven:3.8.4-openjdk-17-slim AS build
-WORKDIR /app
-
-# Copiar apenas os arquivos de dependência primeiro
-COPY pom.xml .
-COPY mvnw .
-COPY .mvn .mvn
-
-# Baixar dependências
-RUN mvn dependency:go-offline
-
-# Copiar o código fonte
-COPY src src
-
-# Build com logs detalhados
-RUN mvn clean package -DskipTests -X
-
-# Run stage
+# Imagem base com JDK 17
 FROM openjdk:17-jdk-slim
-WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
-COPY --from=build /app/src/main/resources/import.sql /app/import.sql
 
-# Define as variáveis de ambiente padrão
+# Diretório de trabalho
+WORKDIR /app
+
+# Copiar o JAR já construído
+COPY target/*.jar app.jar
+COPY src/main/resources/import.sql /app/import.sql
+
+# Variáveis de ambiente
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/tsmovie
 ENV SPRING_DATASOURCE_USERNAME=postgres
