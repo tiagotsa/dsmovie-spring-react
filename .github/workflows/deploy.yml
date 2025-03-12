@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-backend:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Build Backend Docker
+      - name: Build Backend Image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -36,26 +36,24 @@ jobs:
           push: false
           load: true
           tags: tsmovie-backend:latest
-
-  build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build Frontend Docker
+      - name: Build Frontend Image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile
           push: false
           load: true
           tags: tsmovie-frontend:latest
-
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            REACT_APP_BACKEND_URL=http://145.223.29.209:8080
+      
   deploy:
-    needs: [build-backend, build-frontend]
+    needs: [build-and-push]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VPS
