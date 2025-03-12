@@ -80,7 +80,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
             # Certificando-se de que o diretório existe e clonando o repositório se não existir
             if [ ! -d /root/dsmovie-spring-react/.git ]; then
-              git clone https://github.com/seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
+              git clone git@github.com:seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
             fi
 
             cd /root/dsmovie-spring-react && git pull && docker-compose up -d
