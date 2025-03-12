@@ -1,25 +1,23 @@
-
-
-.tsmovie-pagination-container {
+.dsmovie-pagination-container {
     padding: 15px 0;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.tsmovie-pagination-box {
+.dsmovie-pagination-box {
     width: 180px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.tsmovie-pagination-box form {
+.dsmovie-pagination-box form {
     width: 100%;
     display: flex;
 }
 
-.tsmovie-pagination-button {
+.dsmovie-pagination-button {
     width: 40px;
     height: 40px;
     border-radius: 4px;
@@ -31,25 +29,25 @@
     cursor: pointer;
 }
 
-.tsmovie-pagination-button svg {
+.dsmovie-pagination-button svg {
     filter: brightness(0) saturate(100%) invert(26%) sepia(19%) saturate(7395%) hue-rotate(234deg) brightness(89%) contrast(92%);
 }
 
-.tsmovie-pagination-button:disabled {
+.dsmovie-pagination-button:disabled {
     border: 1px solid #c2c2c2;
     cursor: unset;
 }
 
-.tsmovie-pagination-button:disabled svg {
+.dsmovie-pagination-button:disabled svg {
     filter: none;
 }
 
-.tsmovie-pagination-container p {
+.dsmovie-pagination-container p {
     margin: 0;
     font-size: 12px;
     color: var(--color-primary);
 }
 
-.tsmovie-flip-horizontal {
+.dsmovie-flip-horizontal {
     transform: rotate(180deg);
 }

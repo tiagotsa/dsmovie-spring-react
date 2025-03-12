@@ -4,12 +4,12 @@ function Navbar() {
      return (
     <header>
         <nav className="container">
-            <div className="tsmovie-nav-content">
-                <h1>DSTMovie</h1>
+            <div className="dsmovie-nav-content">
+                <h1>DSMovie</h1>
                 <a href="https://github.com/tiagotsa">
-                    <div className="tsmovie-contact-container">
+                    <div className="dsmovie-contact-container">
                         <GithubIcon />
-                        <p className="tsmovie-contact-link">/tiagotsa</p>
+                        <p className="dsmovie-contact-link">/tiagotsa</p>
                     </div>
                 </a>
             </div>
@@ -18,4 +18,4 @@ function Navbar() {
   );
 }
 
-export default Navbar;  
+export default Navbar;

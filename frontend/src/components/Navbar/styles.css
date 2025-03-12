@@ -1,28 +1,30 @@
  header {
-  background-color: var(--color-primary);
-  height: 60px;
-  display: flex;
-  align-items: center;
+    height: 60px;
+    background-color: var(--color-primary);
+    display: flex;
+    align-items: center;
 }
 
-.tsmovie-nav-content h1 {
+.dsmovie-nav-content h1 {
     margin: 0;
     font-weight: 700;
+    font-size: 24px;
+    color: #fff;
 }
 
-.tsmovie-nav-content {
+.dsmovie-nav-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
     color: #fff;
 }
 
-.tsmovie-contact-container {
+.dsmovie-contact-container {
     display: flex;
     align-items: center;
 }
 
-.tsmovie-contact-link {
+.dsmovie-contact-link {
     margin: 0 0 0 10px;
     font-size: 12px;
 }
