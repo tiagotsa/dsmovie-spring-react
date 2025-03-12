@@ -19,7 +19,7 @@ jobs:
         run: |
           # Adicionando o GitHub ao known_hosts para evitar erro de verificação da chave do host
           mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts  # -H adiciona a verificação explícita da chave
 
           # Definindo a chave privada SSH para o uso no repositório
           echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
@@ -27,7 +27,7 @@ jobs:
           
           # Testando a conexão SSH com o GitHub
           ssh -T git@github.com
-
+          
       - name: Definir variável e rodar Docker Compose na VPS
         run: |
           # Definindo variáveis diretamente no arquivo YAML
@@ -35,7 +35,23 @@ jobs:
           VPS_HOST="145.223.29.209"  # IP da sua VPS
 
           # A chave privada SSH é definida aqui como variável
-          VPS_SSH_KEY="-----BEGIN OPENSSH PRIVATE KEY-----
-          b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn
-          NhAAAAAwEAAQAAAgEAtdL12GJ6AgvR+XhBskwMWVOQxUQ6hqktrtdd0ANMSml0bmK+bMac
-          13lFTPyUP4d9/enTOoNXTSIA+lRUcwq/9opRU7jo08qyZETHi6tncztgD7
+          VPS_SSH_KEY="-----BEGIN OPENSSH PRIVATE KEY-----...
+          -----END OPENSSH PRIVATE KEY-----"
+
+          # Adicionar o GitHub à lista de hosts conhecidos (evitar erro de verificação da chave do host)
+          mkdir -p ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+          # Salvando a chave privada em um arquivo temporário e definindo permissões
+          echo "$VPS_SSH_KEY" > private_key
+          chmod 600 private_key
+
+          # Conectando à VPS, criando o diretório se necessário, clonando o repositório e rodando o comando docker-compose
+          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
+            # Certificando-se de que o diretório existe e clonando o repositório se não existir
+            if [ ! -d /root/dsmovie-spring-react/.git ]; then
+              git clone git@github.com:seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
+            fi
+
+            cd /root/dsmovie-spring-react && git pull && docker-compose up -d
+          "
