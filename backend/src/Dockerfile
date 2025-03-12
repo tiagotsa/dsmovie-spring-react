@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copiar o JAR já construído
 COPY target/*.jar app.jar
-COPY src/main/resources/import.sql /app/import.sql
 
 # Variáveis de ambiente
 ENV SPRING_PROFILES_ACTIVE=prod
