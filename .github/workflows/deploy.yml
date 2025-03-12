@@ -125,9 +125,9 @@ jobs:
           ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
 
-            # Parar containers existentes em qualquer diretório
-            docker-compose -f ~/tsmovie/docker-compose.prod.yml down 2>/dev/null || true
-            docker-compose -f ~/dsmovie-spring-react/docker-compose.prod.yml down 2>/dev/null || true
+            # Parar todos os containers e limpar
+            docker-compose down --remove-orphans
+            docker system prune -f
 
             # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
@@ -145,13 +145,29 @@ jobs:
             sleep 30
 
             # Verificar status dos containers
+            echo "Container Status:"
             docker-compose -f docker-compose.prod.yml ps
+            
+            # Verificar logs de cada serviço
+            echo "Database Logs:"
+            docker-compose -f docker-compose.prod.yml logs --tail=20 db
+            
+            echo "Backend Logs:"
+            docker-compose -f docker-compose.prod.yml logs --tail=20 backend
+            
+            echo "Frontend Logs:"
+            docker-compose -f docker-compose.prod.yml logs --tail=20 frontend
 
-            # Mostrar logs dos containers
-            docker-compose -f docker-compose.prod.yml logs --tail=50
+            # Verificar se os serviços estão respondendo
+            echo "Checking services..."
+            curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+            curl -I http://localhost:3000 || echo "Frontend not responding"
 
-            # Remover diretório antigo após deploy bem-sucedido
-            if [ -d "~/tsmovie" ]; then
-              mv ~/tsmovie ~/tsmovie_old_$(date +%Y%m%d_%H%M%S)
-            fi
+            # Verificar status do Nginx
+            echo "Nginx Status:"
+            sudo systemctl status nginx --no-pager
+            
+            # Verificar logs do Nginx
+            echo "Nginx Logs:"
+            sudo tail -n 20 /var/log/nginx/error.log
           ENDSSH
