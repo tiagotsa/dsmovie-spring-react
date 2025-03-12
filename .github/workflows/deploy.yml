@@ -17,6 +17,7 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - uses: actions/checkout@v3
@@ -32,27 +33,34 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+          
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
 
       - name: Build Backend
         working-directory: backend
         env:
           SPRING_PROFILES_ACTIVE: prod
-          MAVEN_OPTS: "-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"
+          MAVEN_OPTS: "-Xmx2048m"
         run: |
-          git update-index --chmod=+x mvnw
-          ./mvnw clean package -DskipTests --no-transfer-progress
+          chmod +x mvnw
+          ./mvnw clean package -B -DskipTests
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh/
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/private.key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
           chmod 600 ~/.ssh/private.key
-          echo "$VPS_HOST ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=" > ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy Backend
         run: |
-          scp -i ~/.ssh/private.key backend/target/*.jar $VPS_USERNAME@$VPS_HOST:/home/$VPS_USERNAME/app/backend/
-          ssh -i ~/.ssh/private.key $VPS_USERNAME@$VPS_HOST "sudo systemctl restart tsmovie"
+          scp -i ~/.ssh/private.key backend/target/*.jar ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USERNAME }}/app/backend/
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "sudo systemctl restart tsmovie"
 
       - name: Build Frontend
         working-directory: frontend
@@ -67,11 +75,14 @@ jobs:
 
       - name: Deploy Frontend
         run: |
-          scp -i ~/.ssh/private.key -r frontend/build/* $VPS_USERNAME@$VPS_HOST:/home/$VPS_USERNAME/app/frontend/
+          scp -i ~/.ssh/private.key -r frontend/build/* ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USERNAME }}/app/frontend/
 
       - name: Setup Database
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          ssh -i ~/.ssh/private.key $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             # Check if PostgreSQL is installed
             if ! command -v psql &> /dev/null; then
               echo "Installing PostgreSQL..."
@@ -109,4 +120,4 @@ jobs:
 
       - name: Restart Application
         run: |
-          ssh -i ~/.ssh/private.key $VPS_USERNAME@$VPS_HOST "sudo systemctl restart tsmovie nginx"
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "sudo systemctl restart tsmovie nginx"
