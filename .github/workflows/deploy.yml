@@ -20,10 +20,14 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Make mvnw executable
+        working-directory: backend
+        run: chmod +x mvnw
+
       - name: Build Backend
+        working-directory: backend
         run: |
-          cd backend
-          mvn -B package --file pom.xml -DskipTests
+          ./mvnw -B package --file pom.xml -DskipTests
           docker build -t tsmovie-backend .
 
       - name: Set up Node.js
