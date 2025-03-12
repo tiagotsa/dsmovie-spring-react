@@ -15,6 +15,18 @@ jobs:
       - name: Instalar SSH
         run: sudo apt-get install -y sshpass  # Instala o sshpass para poder usar SSH de forma não interativa
 
+      - name: Configurar chave SSH
+        run: |
+          # Adicionando o GitHub ao known_hosts para evitar erro de verificação da chave do host
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+          # Definindo a chave privada SSH para o uso no repositório
+          echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa  # Garantir que a chave tenha as permissões corretas
+          
+          # Testando a conexão SSH com o GitHub
+          ssh -T git@github.com
       - name: Definir variável e rodar Docker Compose na VPS
         run: |
           # Definindo variáveis diretamente no arquivo YAML
