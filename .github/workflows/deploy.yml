@@ -5,184 +5,139 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-env:
-  DB_USERNAME: ${{ secrets.DB_USERNAME }}
-  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-  ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
-  ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-  VPS_HOST: ${{ secrets.VPS_HOST }}
-  VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
-    
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-          
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-
-      - name: Build Backend
-        working-directory: backend
-        env:
-          SPRING_PROFILES_ACTIVE: prod
-          MAVEN_OPTS: "-Xmx2048m"
-        run: |
-          chmod +x mvnw
-          ./mvnw clean package -B -DskipTests
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+          echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
           chmod 600 ~/.ssh/private.key
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Check and Install Java on VPS
+      - name: Setup Git on VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            # Verificar se o Java está instalado
-            if ! command -v java &> /dev/null; then
-              echo "Installing Java 17..."
+          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+            # Instalar Git se não estiver instalado
+            if ! command -v git &> /dev/null; then
+              echo "Installing Git..."
               sudo apt-get update
-              sudo apt-get install -y openjdk-17-jdk
+              sudo apt-get install -y git
             fi
-            
-            # Verificar a versão do Java
-            java -version
+
+            # Configurar Git
+            git config --global init.defaultBranch main
           ENDSSH
 
-      - name: Deploy Backend
+      - name: Clone Repository on VPS
         run: |
-          # Primeiro, criar os diretórios necessários no VPS
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "mkdir -p /home/${{ secrets.VPS_USERNAME }}/app/backend"
-          
-          # Copiar o arquivo JAR
-          scp -i ~/.ssh/private.key backend/target/*.jar ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USERNAME }}/app/backend/
-          
-          # Configurar o serviço systemd se não existir
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            echo "Setting up systemd service..."
+          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+            # Remover diretório existente se houver
+            rm -rf ~/tsmovie
             
-            # Encontrar o arquivo JAR mais recente
-            JAR_FILE=$(ls -t /home/$USER/app/backend/*.jar | head -1)
-            echo "Using JAR file: $JAR_FILE"
-            
-            # Criar ou atualizar o serviço systemd
-            sudo tee /etc/systemd/system/tsmovie.service > /dev/null << EOF
-            [Unit]
-            Description=TSMovie Spring Boot Application
-            After=network.target postgresql.service
-            
-            [Service]
-            User=$USER
-            WorkingDirectory=/home/$USER/app/backend
-            ExecStart=/usr/bin/java -jar -Dspring.profiles.active=prod $JAR_FILE
-            SuccessExitStatus=143
-            TimeoutStopSec=10
-            Restart=on-failure
-            RestartSec=5
-            Environment="DB_USERNAME=${{ secrets.DB_USERNAME }}"
-            Environment="DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
-            
-            [Install]
-            WantedBy=multi-user.target
-            EOF
-            
-            echo "Reloading systemd..."
-            sudo systemctl daemon-reload
-            
-            echo "Enabling tsmovie service..."
-            sudo systemctl enable tsmovie
-            
-            echo "Restarting tsmovie service..."
-            sudo systemctl restart tsmovie
-            
-            echo "Waiting for service to start..."
-            sleep 5
-            
-            echo "Service status:"
-            sudo systemctl status tsmovie --no-pager
-            
-            echo "Service logs:"
-            sudo journalctl -u tsmovie -n 50 --no-pager
+            # Clonar repositório
+            git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/tsmovie
+            cd ~/tsmovie
           ENDSSH
 
-      - name: Build Frontend
-        working-directory: frontend
-        env:
-          CI: false
-          DISABLE_ESLINT_PLUGIN: true
-          GENERATE_SOURCEMAP: false
+      - name: Setup Docker and Nginx on VPS
         run: |
-          yarn config set network-timeout 300000
-          yarn install
-          yarn build
+          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+            # Instalar Docker se não estiver instalado
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo usermod -aG docker $USER
+              rm get-docker.sh
+            fi
 
-      - name: Deploy Frontend
-        run: |
-          scp -i ~/.ssh/private.key -r frontend/build/* ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USERNAME }}/app/frontend/
+            # Instalar Docker Compose se não estiver instalado
+            if ! command -v docker-compose &> /dev/null; then
+              echo "Installing Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
 
-      - name: Setup Database
-        env:
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            # Check if PostgreSQL is installed
-            if ! command -v psql &> /dev/null; then
-              echo "Installing PostgreSQL..."
+            # Instalar e configurar Nginx
+            if ! command -v nginx &> /dev/null; then
+              echo "Installing Nginx..."
               sudo apt-get update
-              sudo apt-get install -y postgresql postgresql-contrib
+              sudo apt-get install -y nginx
             fi
 
-            # Start PostgreSQL if not running
-            if ! systemctl is-active --quiet postgresql; then
-              echo "Starting PostgreSQL..."
-              sudo systemctl start postgresql
-            fi
+            # Configurar Nginx como proxy reverso
+            sudo tee /etc/nginx/sites-available/tsmovie << EOF
+            server {
+                listen 80;
+                server_name _;
 
-            # Create database and user if they don't exist
-            sudo -u postgres psql << EOF
-            DO \$\$
-            BEGIN
-              IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tsmovie') THEN
-                CREATE DATABASE tsmovie;
-              END IF;
-              
-              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USERNAME') THEN
-                CREATE USER $DB_USERNAME WITH PASSWORD '$DB_PASSWORD';
-              END IF;
-              
-              GRANT ALL PRIVILEGES ON DATABASE tsmovie TO $DB_USERNAME;
-            END
-            \$\$;
+                location / {
+                    proxy_pass http://localhost:3000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_cache_bypass \$http_upgrade;
+                }
+
+                location /api {
+                    proxy_pass http://localhost:8080;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_cache_bypass \$http_upgrade;
+                }
+            }
             EOF
 
-            # Configure pg_hba.conf to allow password authentication
-            sudo sed -i 's/local   all             all                                     peer/local   all             all                                     md5/g' /etc/postgresql/*/main/pg_hba.conf
-            sudo systemctl restart postgresql
+            # Ativar o site e remover o default
+            sudo ln -sf /etc/nginx/sites-available/tsmovie /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+
+            # Testar e reiniciar Nginx
+            sudo nginx -t
+            sudo systemctl restart nginx
           ENDSSH
 
-      - name: Restart Application
+      - name: Deploy with Docker Compose
         run: |
-          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "sudo systemctl restart tsmovie nginx"
+          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+            cd ~/tsmovie
+
+            # Criar arquivo .env com as variáveis de ambiente
+            cat > .env << EOF
+            POSTGRES_DB=tsmovie
+            POSTGRES_USER=${{ env.DB_USERNAME }}
+            POSTGRES_PASSWORD=${{ env.DB_PASSWORD }}
+            REACT_APP_API_URL=http://${{ env.VPS_HOST }}:8080
+            EOF
+
+            # Parar e remover containers existentes
+            docker-compose -f docker-compose.prod.yml down
+
+            # Reconstruir e iniciar containers
+            docker-compose -f docker-compose.prod.yml up -d --build
+
+            # Aguardar containers iniciarem
+            echo "Waiting for containers to start..."
+            sleep 30
+
+            # Verificar status dos containers
+            docker-compose -f docker-compose.prod.yml ps
+
+            # Mostrar logs dos containers
+            docker-compose -f docker-compose.prod.yml logs --tail=50
+          ENDSSH
