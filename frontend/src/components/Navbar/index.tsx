@@ -4,12 +4,12 @@ function Navbar() {
      return (
     <header>
         <nav className="container">
-            <div className="dsmovie-nav-content">
+            <div className="tsmovie-nav-content">
                 <h1>DSMovie</h1>
                 <a href="https://github.com/tiagotsa">
-                    <div className="dsmovie-contact-container">
+                    <div className="tsmovie-contact-container">
                         <GithubIcon />
-                        <p className="dsmovie-contact-link">/tiagotsa</p>
+                        <p className="tsmovie-contact-link">/tiagotsa</p>
                     </div>
                 </a>
             </div>
