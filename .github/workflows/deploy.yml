@@ -26,8 +26,8 @@ jobs:
           chmod 600 ~/.ssh/id_rsa  # Garantir que a chave tenha as permissões corretas
           
           # Testando a conexão SSH com o GitHub
-          ssh -T git@github.com
-          
+          ssh -v -T git@github.com  # Adiciona o modo verbose para depuração
+
       - name: Definir variável e rodar Docker Compose na VPS
         run: |
           # Definindo variáveis diretamente no arquivo YAML
@@ -47,7 +47,7 @@ jobs:
           chmod 600 private_key
 
           # Conectando à VPS, criando o diretório se necessário, clonando o repositório e rodando o comando docker-compose
-          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
+          ssh -v -o StrictHostKeyChecking=yes -i private_key $VPS_USER@$VPS_HOST "
             # Certificando-se de que o diretório existe e clonando o repositório se não existir
             if [ ! -d /root/dsmovie-spring-react/.git ]; then
               git clone git@github.com:seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
