@@ -81,34 +81,50 @@ jobs:
           
           # Configurar o serviço systemd se não existir
           ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            if [ ! -f /etc/systemd/system/tsmovie.service ]; then
-              echo "Creating systemd service..."
-              sudo tee /etc/systemd/system/tsmovie.service > /dev/null << EOF
-              [Unit]
-              Description=TSMovie Spring Boot Application
-              After=network.target postgresql.service
-              
-              [Service]
-              User=$USER
-              WorkingDirectory=/home/$USER/app/backend
-              ExecStart=/usr/bin/java -jar -Dspring.profiles.active=prod *.jar
-              SuccessExitStatus=143
-              TimeoutStopSec=10
-              Restart=on-failure
-              RestartSec=5
-              
-              [Install]
-              WantedBy=multi-user.target
-              EOF
-              
-              sudo systemctl daemon-reload
-              sudo systemctl enable tsmovie
-            fi
+            echo "Setting up systemd service..."
+            
+            # Encontrar o arquivo JAR mais recente
+            JAR_FILE=$(ls -t /home/$USER/app/backend/*.jar | head -1)
+            echo "Using JAR file: $JAR_FILE"
+            
+            # Criar ou atualizar o serviço systemd
+            sudo tee /etc/systemd/system/tsmovie.service > /dev/null << EOF
+            [Unit]
+            Description=TSMovie Spring Boot Application
+            After=network.target postgresql.service
+            
+            [Service]
+            User=$USER
+            WorkingDirectory=/home/$USER/app/backend
+            ExecStart=/usr/bin/java -jar -Dspring.profiles.active=prod $JAR_FILE
+            SuccessExitStatus=143
+            TimeoutStopSec=10
+            Restart=on-failure
+            RestartSec=5
+            Environment="DB_USERNAME=${{ secrets.DB_USERNAME }}"
+            Environment="DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
+            
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            
+            echo "Reloading systemd..."
+            sudo systemctl daemon-reload
+            
+            echo "Enabling tsmovie service..."
+            sudo systemctl enable tsmovie
             
             echo "Restarting tsmovie service..."
             sudo systemctl restart tsmovie
+            
+            echo "Waiting for service to start..."
+            sleep 5
+            
             echo "Service status:"
             sudo systemctl status tsmovie --no-pager
+            
+            echo "Service logs:"
+            sudo journalctl -u tsmovie -n 50 --no-pager
           ENDSSH
 
       - name: Build Frontend
