@@ -13,16 +13,9 @@ jobs:
       - name: Test SSH Connection
         uses: appleboy/ssh-action@master
         with:
-          host: 145.223.29.209
-          username: root
-          key: -----BEGIN OPENSSH PRIVATE KEY-----
-           b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-            QyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmwAAAKChuvR3obr0
-            dwAAAAtzc2gtZWQyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmw
-            AAAEBd0XXpyKOAqNOzLBb8J8/NtPILur6U3EbzXP5sa+lxG0jOjnbocguP8xg6q+IGxQGN
-           D1ktbLB1OOUH7QwAUoubAAAAGnRpYWdvLmFsbWVpZGF0QG91dGxvb2suY29tAQID
-           -----END OPENSSH PRIVATE KEY-----
-
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: 22
           script: |
             echo "✅ Teste de conexão SSH..."
