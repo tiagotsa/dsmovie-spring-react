@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -17,7 +17,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven'
       
       - name: Build Backend JAR
         working-directory: backend
@@ -25,23 +24,7 @@ jobs:
           chmod +x mvnw
           ./mvnw clean package -DskipTests
       
-      - name: Setup Docker
-        run: |
-          docker version
-          docker info
-      
-      - name: Build Images
-        run: |
-          # Build backend
-          cd backend
-          cp src/Dockerfile .
-          docker build -t tsmovie-backend .
-          
-          # Build frontend
-          cd ../frontend
-          docker build -t tsmovie-frontend .
-      
-      - name: Configure VPS
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -49,29 +32,18 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # Garantir que o Git está instalado
-            which git || (apt-get update && apt-get install -y git)
-            
-            # Configurar diretório do projeto
+            # Configurar diretório
             mkdir -p /opt/tsmovie
             cd /opt/tsmovie
             
-            # Configurar Git se necessário
+            # Atualizar código
             if [ ! -d .git ]; then
               git init
-              git config --global --add safe.directory /opt/tsmovie
               git remote add origin https://github.com/tiagotsa/dsmovie-spring-react.git
             fi
-            
-            # Atualizar código
             git fetch origin main
             git reset --hard origin/main
             
-            # Garantir que o Docker Compose está instalado
-            which docker-compose || (apt-get update && apt-get install -y docker-compose)
-            
-            # Parar containers existentes
-            docker-compose -f docker-compose.prod.yml down || true
-            
-            # Iniciar aplicação
-            docker-compose -f docker-compose.prod.yml up -d --build
+            # Build e deploy
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker-compose -f docker-compose.prod.yml up -d
