@@ -20,6 +20,8 @@ jobs:
 
       - name: Build Frontend
         working-directory: frontend
+        env:
+          CI: false
         run: |
           yarn install
           yarn build
@@ -32,6 +34,11 @@ jobs:
 
       - name: Build Backend
         working-directory: backend
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           chmod +x mvnw
           ./mvnw clean package -DskipTests
@@ -49,6 +56,16 @@ jobs:
             StrictHostKeyChecking no
           END
 
+      - name: Prepare Deploy Directory
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/dsmovie/frontend/build
+            mkdir -p ~/dsmovie/backend/target
+
       - name: Deploy to Hostinger
         uses: appleboy/scp-action@master
         with:
@@ -61,17 +78,49 @@ jobs:
           target: "/home/${{ secrets.VPS_USERNAME }}/dsmovie"
           strip_components: 1
 
-      - name: Restart Application
+      - name: Setup Database and Application
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            echo "🛠️ Configurando PostgreSQL..."
+            # Instalar PostgreSQL se não estiver instalado
+            if ! command -v psql &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y postgresql postgresql-contrib
+            fi
+            
+            # Iniciar PostgreSQL se não estiver rodando
+            sudo systemctl start postgresql
+            sudo systemctl enable postgresql
+            
+            # Criar usuário e banco de dados se não existirem
+            sudo -u postgres psql -c "SELECT 1 FROM pg_roles WHERE rolname = '${{ secrets.DB_USERNAME }}'" | grep -q 1 || \
+            sudo -u postgres psql -c "CREATE USER ${{ secrets.DB_USERNAME }} WITH PASSWORD '${{ secrets.DB_PASSWORD }}'"
+            
+            sudo -u postgres psql -c "SELECT 1 FROM pg_database WHERE datname = 'tsmovie'" | grep -q 1 || \
+            sudo -u postgres psql -c "CREATE DATABASE tsmovie OWNER ${{ secrets.DB_USERNAME }}"
+            
+            echo "✅ PostgreSQL configurado"
+            
             echo "🚀 Reiniciando aplicação..."
             cd ~/dsmovie
             pkill -f 'java -jar' || true
-            nohup java -jar -Dspring.profiles.active=prod backend/target/*.jar > app.log 2>&1 &
+            
+            # Configurar variáveis de ambiente para o backend
+            export DB_USERNAME=${{ secrets.DB_USERNAME }}
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            export ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}
+            export ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            
+            nohup java -jar \
+              -Dspring.profiles.active=prod \
+              -Dspring.datasource.username=${{ secrets.DB_USERNAME }} \
+              -Dspring.datasource.password=${{ secrets.DB_PASSWORD }} \
+              backend/target/*.jar > app.log 2>&1 &
+            
             echo "✅ Backend reiniciado"
             
             # Configure e reinicie o Nginx para servir o frontend
@@ -91,6 +140,8 @@ jobs:
                     proxy_pass http://localhost:8080;
                     proxy_set_header Host \$host;
                     proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
                 }
             }
             EOF
