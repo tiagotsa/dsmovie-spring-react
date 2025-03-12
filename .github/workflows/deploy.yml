@@ -120,6 +120,71 @@ jobs:
             sudo systemctl restart nginx
           ENDSSH
 
+      - name: Configure Hostinger Environment
+        run: |
+          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+            # Verificar e configurar firewall
+            echo "Checking firewall rules..."
+            sudo ufw status
+            
+            # Garantir que as portas necessárias estejam abertas
+            sudo ufw allow 80/tcp
+            sudo ufw allow 443/tcp
+            sudo ufw allow 8080/tcp
+            sudo ufw allow 3000/tcp
+
+            # Verificar configurações do Apache (se estiver instalado)
+            if systemctl is-active apache2 >/dev/null 2>&1; then
+              echo "Stopping Apache..."
+              sudo systemctl stop apache2
+              sudo systemctl disable apache2
+            fi
+
+            # Garantir que o Nginx está configurado como servidor web principal
+            if [ -f "/etc/nginx/sites-enabled/default" ]; then
+              sudo rm /etc/nginx/sites-enabled/default
+            fi
+
+            # Configurar Nginx para usar a porta correta
+            sudo tee /etc/nginx/conf.d/tsmovie.conf << EOF
+            server {
+                listen 80;
+                server_name _;
+
+                # Configuração de cache do navegador
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+                    expires 1d;
+                    add_header Cache-Control "public, no-transform";
+                }
+
+                location / {
+                    proxy_pass http://localhost:3000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_cache_bypass \$http_upgrade;
+                    
+                    # Desabilitar cache para o index.html
+                    add_header Cache-Control "no-store, no-cache, must-revalidate";
+                }
+
+                location /api {
+                    proxy_pass http://localhost:8080;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_cache_bypass \$http_upgrade;
+                }
+            }
+            EOF
+
+            # Testar e reiniciar Nginx
+            sudo nginx -t
+            sudo systemctl restart nginx
+          ENDSSH
+
       - name: Deploy with Docker Compose
         run: |
           ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
