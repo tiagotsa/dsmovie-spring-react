@@ -43,12 +43,14 @@ jobs:
       - name: Clone Repository on VPS
         run: |
           ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Remover diretório existente se houver
-            rm -rf ~/tsmovie
+            # Fazer backup do diretório atual se existir
+            if [ -d "~/dsmovie-spring-react" ]; then
+              mv ~/dsmovie-spring-react ~/dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
+            fi
             
             # Clonar repositório
-            git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/tsmovie
-            cd ~/tsmovie
+            git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/dsmovie-spring-react
+            cd ~/dsmovie-spring-react
           ENDSSH
 
       - name: Setup Docker and Nginx on VPS
@@ -121,7 +123,11 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            cd ~/tsmovie
+            cd ~/dsmovie-spring-react
+
+            # Parar containers existentes em qualquer diretório
+            docker-compose -f ~/tsmovie/docker-compose.prod.yml down 2>/dev/null || true
+            docker-compose -f ~/dsmovie-spring-react/docker-compose.prod.yml down 2>/dev/null || true
 
             # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
@@ -131,11 +137,8 @@ jobs:
             REACT_APP_API_URL=http://${{ env.VPS_HOST }}
             EOF
 
-            # Parar e remover containers existentes
-            docker-compose -f docker-compose.prod.yml down
-
             # Reconstruir e iniciar containers
-            docker-compose -f docker-compose.prod.yml up -d --build
+            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
 
             # Aguardar containers iniciarem
             echo "Waiting for containers to start..."
@@ -146,4 +149,9 @@ jobs:
 
             # Mostrar logs dos containers
             docker-compose -f docker-compose.prod.yml logs --tail=50
+
+            # Remover diretório antigo após deploy bem-sucedido
+            if [ -d "~/tsmovie" ]; then
+              mv ~/tsmovie ~/tsmovie_old_$(date +%Y%m%d_%H%M%S)
+            fi
           ENDSSH
