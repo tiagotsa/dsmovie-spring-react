@@ -22,7 +22,10 @@ jobs:
         working-directory: frontend
         env:
           CI: false
+          DISABLE_ESLINT_PLUGIN: true
+          GENERATE_SOURCEMAP: false
         run: |
+          yarn config set network-timeout 300000
           yarn install
           yarn build
 
