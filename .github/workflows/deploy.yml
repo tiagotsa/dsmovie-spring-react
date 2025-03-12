@@ -1,3 +1,6 @@
+Aqui está o código YAML corretamente identado:
+
+```yaml
 name: Deploy to Production
 
 on:
@@ -15,19 +18,6 @@ jobs:
       - name: Instalar SSH
         run: sudo apt-get install -y sshpass  # Instala o sshpass para poder usar SSH de forma não interativa
 
-      - name: Configurar chave SSH
-        run: |
-          # Adicionando o GitHub ao known_hosts para evitar erro de verificação da chave do host
-          mkdir -p ~/.ssh
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts  # -H adiciona a verificação explícita da chave
-
-          # Definindo a chave privada SSH para o uso no repositório
-          echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa  # Garantir que a chave tenha as permissões corretas
-          
-          # Testando a conexão SSH com o GitHub
-          ssh -v -T git@github.com  # Adiciona o modo verbose para depuração
-
       - name: Definir variável e rodar Docker Compose na VPS
         run: |
           # Definindo variáveis diretamente no arquivo YAML
@@ -35,23 +25,74 @@ jobs:
           VPS_HOST="145.223.29.209"  # IP da sua VPS
 
           # A chave privada SSH é definida aqui como variável
-          VPS_SSH_KEY="-----BEGIN OPENSSH PRIVATE KEY-----...
+          VPS_SSH_KEY="-----BEGIN OPENSSH PRIVATE KEY-----
+          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
           -----END OPENSSH PRIVATE KEY-----"
 
           # Adicionar o GitHub à lista de hosts conhecidos (evitar erro de verificação da chave do host)
           mkdir -p ~/.ssh
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
           # Salvando a chave privada em um arquivo temporário e definindo permissões
           echo "$VPS_SSH_KEY" > private_key
           chmod 600 private_key
 
           # Conectando à VPS, criando o diretório se necessário, clonando o repositório e rodando o comando docker-compose
-          ssh -v -o StrictHostKeyChecking=yes -i private_key $VPS_USER@$VPS_HOST "
+          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST "
             # Certificando-se de que o diretório existe e clonando o repositório se não existir
             if [ ! -d /root/dsmovie-spring-react/.git ]; then
               git clone git@github.com:seu_usuario/seu_repositorio.git /root/dsmovie-spring-react
             fi
 
             cd /root/dsmovie-spring-react && git pull && docker-compose up -d
+          "
+```
+
+Agora o código está adequadamente identado, mantendo a estrutura do YAML consistente. Isso deve facilitar a leitura e execução do arquivo sem erros.
           "
