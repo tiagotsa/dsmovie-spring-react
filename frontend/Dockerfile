@@ -1,32 +1,32 @@
-# Etapa de construção
+# Build stage
 FROM node:16-alpine as build
 
 # Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de dependências
-COPY package.json ./
+# Copia apenas os arquivos de dependência primeiro
+COPY package.json yarn.lock ./
 
-# Instala as dependências do projeto
-RUN yarn install
+# Instala as dependências
+RUN yarn install --frozen-lockfile --network-timeout 600000
 
-# Copia todos os arquivos do projeto
+# Copia o restante dos arquivos
 COPY . .
 
-# Realiza o build da aplicação
+# Define a variável de ambiente para evitar tratamento de warnings como erros
+ENV CI=false
+
+# Build da aplicação
 RUN yarn build
 
-# Etapa de produção
+# Production stage
 FROM nginx:alpine
 
-# Copia os arquivos buildados da etapa anterior para o diretório do nginx
+# Copia os arquivos buildados
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Se você tiver configurações personalizadas do nginx, descomente a linha abaixo
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expõe a porta 80 para acesso à aplicação
+# Expõe a porta 80
 EXPOSE 80
 
-# Inicia o servidor nginx
+# Inicia o nginx
 CMD ["nginx", "-g", "daemon off;"]
