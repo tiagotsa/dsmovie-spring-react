@@ -12,20 +12,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
       - name: Build Backend Docker Image
         run: |
+          echo "Iniciando build do backend..."
           cd backend
           cp src/Dockerfile .
-          docker build -t tsmovie-backend .
+          echo "Construindo imagem Docker do backend..."
+          DOCKER_BUILDKIT=1 docker build --progress=plain -t tsmovie-backend .
       
       - name: Build Frontend Docker Image
         run: |
+          echo "Iniciando build do frontend..."
           cd frontend
-          docker build -t tsmovie-frontend .
+          DOCKER_BUILDKIT=1 docker build --progress=plain -t tsmovie-frontend .
       
       - name: Deploy to VPS
         uses: appleboy/ssh-action@master
@@ -35,27 +40,37 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            echo "Iniciando deploy na VPS..."
+            
             # Garantir que o diretório existe
             mkdir -p /opt/tsmovie
             cd /opt/tsmovie
             
             # Configurar Git se necessário
             if [ ! -d .git ]; then
+              echo "Configurando repositório Git..."
               git init
               git remote add origin https://github.com/tiagotsa/dsmovie-spring-react.git
             fi
             
             # Pull latest code
+            echo "Baixando código mais recente..."
             git pull origin main
             
             # Stop and remove existing containers
+            echo "Parando containers existentes..."
             docker-compose -f docker-compose.prod.yml down
             
             # Remove old containers and volumes if needed
+            echo "Removendo containers antigos..."
             docker-compose -f docker-compose.prod.yml rm -f
             
             # Build and start new containers
+            echo "Iniciando novos containers..."
             docker-compose -f docker-compose.prod.yml up -d --build
             
             # Clean up unused images
+            echo "Limpando imagens não utilizadas..."
             docker image prune -f
+            
+            echo "Deploy concluído!"

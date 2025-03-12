@@ -1,8 +1,20 @@
 # Build stage
 FROM maven:3.8.4-openjdk-17-slim AS build
 WORKDIR /app
-COPY . .
-RUN mvn clean package -DskipTests
+
+# Copiar apenas os arquivos de dependência primeiro
+COPY pom.xml .
+COPY mvnw .
+COPY .mvn .mvn
+
+# Baixar dependências
+RUN mvn dependency:go-offline
+
+# Copiar o código fonte
+COPY src src
+
+# Build com logs detalhados
+RUN mvn clean package -DskipTests -X
 
 # Run stage
 FROM openjdk:17-jdk-slim
