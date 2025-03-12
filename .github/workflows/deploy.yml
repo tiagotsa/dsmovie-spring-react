@@ -72,6 +72,10 @@ jobs:
           etA3tmzAuHe/AAAAGnRpYWdvLmFsbWVpZGF0QG91dGxvb2suY29t
           -----END OPENSSH PRIVATE KEY-----"
 
+          # Adicionar o GitHub à lista de hosts conhecidos (evitar erro de verificação da chave do host)
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
           # Salvando a chave privada em um arquivo temporário e definindo permissões
           echo "$VPS_SSH_KEY" > private_key
           chmod 600 private_key
