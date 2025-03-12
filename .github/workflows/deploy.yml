@@ -17,40 +17,51 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: 22
+          script_stop: true
           script: |
-            set -e
-            echo " Instalando e configurando dependências..."
+            echo " Verificando ambiente..."
+            
+            # Verificar sudo
+            if ! command -v sudo &> /dev/null; then
+              apt-get update && apt-get install -y sudo
+            fi
             
             # Instalar Git
             if ! command -v git &> /dev/null; then
               echo " Instalando Git..."
-              sudo apt-get update
-              sudo apt-get install -y git
+              sudo apt-get update && sudo apt-get install -y git
+            else
+              echo " Git já instalado"
             fi
             
-            # Configurar Git
-            echo " Configurando Git..."
-            git config --global --add safe.directory /opt/tsmovie
-            git config --global user.name "GitHub Actions"
-            git config --global user.email "actions@github.com"
-            
-            # Instalar Docker
+            # Verificar Docker
             if ! command -v docker &> /dev/null; then
               echo " Instalando Docker..."
-              curl -fsSL https://get.docker.com | sudo sh
+              sudo apt-get update
+              sudo apt-get install -y ca-certificates curl gnupg
+              sudo install -m 0755 -d /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              sudo chmod a+r /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo usermod -aG docker $USER
               sudo systemctl enable docker
               sudo systemctl start docker
+            else
+              echo " Docker já instalado"
             fi
             
-            # Instalar Docker Compose
-            if ! command -v docker-compose &> /dev/null; then
+            # Verificar Docker Compose
+            if ! command -v docker compose &> /dev/null; then
               echo " Instalando Docker Compose..."
               sudo apt-get update
-              sudo apt-get install -y docker-compose
+              sudo apt-get install -y docker-compose-plugin
+            else
+              echo " Docker Compose já instalado"
             fi
             
-            echo " Configuração concluída!"
+            echo " Ambiente configurado com sucesso!"
 
       - name: Deploy Application
         if: success()
@@ -60,14 +71,22 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           port: 22
+          script_stop: true
           script: |
-            set -e
             echo " Iniciando deploy..."
             
-            # Preparar diretório
-            sudo mkdir -p /opt/tsmovie
-            sudo chown -R $USER:$USER /opt/tsmovie
-            cd /opt/tsmovie
+            # Criar diretório do projeto
+            echo " Preparando diretório..."
+            DEPLOY_DIR="/opt/tsmovie"
+            sudo mkdir -p $DEPLOY_DIR
+            sudo chown -R $USER:$USER $DEPLOY_DIR
+            cd $DEPLOY_DIR
+            
+            # Configurar Git
+            echo " Configurando Git..."
+            git config --global --add safe.directory $DEPLOY_DIR
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
             
             # Clonar/atualizar repositório
             if [ ! -d .git ]; then
@@ -80,12 +99,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
-            echo " Reiniciando containers..."
-            docker-compose -f docker-compose.prod.yml down || true
+            echo " Gerenciando containers..."
+            sudo systemctl start docker
+            docker compose -f docker-compose.prod.yml down || true
             docker system prune -af --volumes || true
             
             echo " Construindo e iniciando serviços..."
-            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
+            docker compose -f docker-compose.prod.yml up -d --build --force-recreate
             
             echo " Status dos serviços:"
-            docker-compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
