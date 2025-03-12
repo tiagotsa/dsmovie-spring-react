@@ -6,74 +6,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  setup-and-deploy:
+  test-connection:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Setup VPS Dependencies
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_PRIVATE_KEY }}
-          port: 22
-          script: |
-            echo " Verificando dependências..."
-            
-            # Instalar Docker usando get.docker.com
-            if ! command -v docker &> /dev/null; then
-              echo " Instalando Docker..."
-              curl -fsSL https://get.docker.com | sudo sh
-              sudo usermod -aG docker $USER
-              sudo systemctl enable docker
-              sudo systemctl start docker
-            else
-              echo " Docker já instalado"
-            fi
-            
-            # Verificar Docker Compose Plugin
-            if ! docker compose version &> /dev/null; then
-              echo " Instalando Docker Compose..."
-              sudo apt-get update
-              sudo apt-get install -y docker-compose-plugin
-            else
-              echo " Docker Compose já instalado"
-            fi
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_PRIVATE_KEY }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy Application
-        if: success()
+      - name: Test SSH Connection
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          key_path: ~/.ssh/deploy_key
           port: 22
           script: |
-            echo " Iniciando deploy..."
-            
-            # Preparar diretório
-            DEPLOY_DIR="/opt/tsmovie"
-            sudo mkdir -p $DEPLOY_DIR
-            sudo chown -R $USER:$USER $DEPLOY_DIR
-            cd $DEPLOY_DIR
-            
-            # Clonar/atualizar repositório
-            if [ ! -d .git ]; then
-              echo " Clonando repositório..."
-              git clone https://github.com/tiagotsa/dsmovie-spring-react.git .
-            else
-              echo " Atualizando código..."
-              git fetch origin main
-              git reset --hard origin/main
-            fi
-            
-            # Deploy com Docker Compose
-            echo " Atualizando containers..."
-            docker compose -f docker-compose.prod.yml down || true
-            docker system prune -af --volumes || true
-            
-            echo " Construindo e iniciando serviços..."
-            docker compose -f docker-compose.prod.yml up -d --build --force-recreate
-            
-            echo " Status dos serviços:"
-            docker compose -f docker-compose.prod.yml ps
+            echo " Conexão SSH estabelecida com sucesso!"
+            echo " Diretório atual: $(pwd)"
+            echo " Usuário: $(whoami)"
+            echo " Hostname: $(hostname)"
