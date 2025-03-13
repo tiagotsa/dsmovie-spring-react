@@ -72,11 +72,11 @@ jobs:
             docker system prune -f
             cat > .env << EOF
             POSTGRES_DB=tsmovie
-            POSTGRES_USER=${{ secrets.DB_USERNAME }}
-            POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
-            REACT_APP_API_URL=http://${{ secrets.VPS_HOST }}
+            POSTGRES_USER=${DB_USERNAME}
+            POSTGRES_PASSWORD=${DB_PASSWORD}
+            REACT_APP_API_URL=http://${VPS_HOST}
             EOF
-            docker-compose up -d --build --force-recreate
+            docker-compose -f docker-compose.yml up -d --build --force-recreate
             echo "Waiting for containers to start..."
             sleep 30
           ENDSSH
