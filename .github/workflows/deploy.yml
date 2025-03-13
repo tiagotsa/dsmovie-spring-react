@@ -190,9 +190,13 @@ jobs:
           ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
 
-            # Parar todos os containers e limpar
+            # Parar todos os containers e limpar cache
             docker-compose down --remove-orphans
-            docker system prune -f
+            docker system prune -f --volumes
+            
+            # Remover cache do node_modules
+            rm -rf frontend/node_modules
+            rm -rf frontend/build
 
             # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
@@ -200,39 +204,28 @@ jobs:
             POSTGRES_USER=${{ env.DB_USERNAME }}
             POSTGRES_PASSWORD=${{ env.DB_PASSWORD }}
             REACT_APP_API_URL=http://${{ env.VPS_HOST }}
+            REACT_APP_VERSION=$(date +%s)
             EOF
 
             # Reconstruir e iniciar containers
-            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
+            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate --no-cache
 
             # Aguardar containers iniciarem
             echo "Waiting for containers to start..."
             sleep 30
+
+            # Limpar cache do Nginx
+            sudo rm -rf /var/cache/nginx/*
+            sudo systemctl restart nginx
 
             # Verificar status dos containers
             echo "Container Status:"
             docker-compose -f docker-compose.prod.yml ps
             
             # Verificar logs de cada serviço
-            echo "Database Logs:"
-            docker-compose -f docker-compose.prod.yml logs --tail=20 db
-            
             echo "Backend Logs:"
             docker-compose -f docker-compose.prod.yml logs --tail=20 backend
             
             echo "Frontend Logs:"
             docker-compose -f docker-compose.prod.yml logs --tail=20 frontend
-
-            # Verificar se os serviços estão respondendo
-            echo "Checking services..."
-            curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
-            curl -I http://localhost:3000 || echo "Frontend not responding"
-
-            # Verificar status do Nginx
-            echo "Nginx Status:"
-            sudo systemctl status nginx --no-pager
-            
-            # Verificar logs do Nginx
-            echo "Nginx Logs:"
-            sudo tail -n 20 /var/log/nginx/error.log
           ENDSSH
