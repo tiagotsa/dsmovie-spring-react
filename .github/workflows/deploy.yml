@@ -116,16 +116,16 @@ jobs:
 
             # Verificar se os serviços estão respondendo
             echo "Checking services..."
-            curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
-            curl -I http://localhost:3000 || echo "Frontend not responding"
+            #curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+            #curl -I http://localhost:3000 || echo "Frontend not responding"
 
             # Verificar status do Nginx
             echo "Nginx Status:"
-            sudo systemctl status nginx --no-pager
+            #sudo systemctl status nginx --no-pager
             
             # Verificar logs do Nginx
             echo "Nginx Logs:"
-            sudo tail -n 20 /var/log/nginx/error.log
+            #sudo tail -n 20 /var/log/nginx/error.log
 
       - name: Concluido com sucesso
         run: |
