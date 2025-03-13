@@ -19,44 +19,37 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup SSH
+      - name: Iniciando acesso via SSH no servidor VPS
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
           chmod 600 ~/.ssh/private.key
-          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Setup Git on VPS
+      - name: Instalando e configurando Git on VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Instalar Git se não estiver instalado
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v git &> /dev/null; then
               echo "Installing Git..."
               sudo apt-get update
               sudo apt-get install -y git
             fi
-
-            # Configurar Git
             git config --global init.defaultBranch main
           ENDSSH
 
-      - name: Clone Repository on VPS
+      - name: Clone aplicação para VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Fazer backup do diretório atual se existir
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if [ -d "~/dsmovie-spring-react" ]; then
               mv ~/dsmovie-spring-react ~/dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
             fi
-            
-            # Clonar repositório
             git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/dsmovie-spring-react
             cd ~/dsmovie-spring-react
           ENDSSH
 
-      - name: Setup Docker and Nginx on VPS
+      - name: Configurando e instalando Docker e docker-compose on VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Instalar Docker se não estiver instalado
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
@@ -64,168 +57,51 @@ jobs:
               sudo usermod -aG docker $USER
               rm get-docker.sh
             fi
-
-            # Instalar Docker Compose se não estiver instalado
             if ! command -v docker-compose &> /dev/null; then
               echo "Installing Docker Compose..."
               sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
             fi
-
-            # Instalar e configurar Nginx
-            if ! command -v nginx &> /dev/null; then
-              echo "Installing Nginx..."
-              sudo apt-get update
-              sudo apt-get install -y nginx
-            fi
-
-            # Configurar Nginx como proxy reverso
-            sudo tee /etc/nginx/conf.d/tsmovie.conf << EOF
-            server {
-                listen 80;
-                server_name _;
-
-                location / {
-                    proxy_pass http://localhost:3000;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                    proxy_cache_bypass \$http_upgrade;
-                }
-
-                location /api {
-                    proxy_pass http://localhost:8080;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                    proxy_cache_bypass \$http_upgrade;
-                }
-            }
-            EOF
-
-            # Remover configuração padrão e verificar sintaxe
-            sudo rm -f /etc/nginx/conf.d/default.conf
-            sudo nginx -t
-
-            # Recarregar systemd e reiniciar serviços
-            sudo systemctl daemon-reload
-            sudo systemctl restart nginx
           ENDSSH
 
-      - name: Configure Hostinger Environment
+      - name: Instalando aplicação no servidor com docker compose (deploy)
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Verificar e configurar firewall
-            echo "Checking firewall rules..."
-            sudo ufw status
-            
-            # Garantir que as portas necessárias estejam abertas
-            sudo ufw allow 80/tcp
-            sudo ufw allow 443/tcp
-            sudo ufw allow 8080/tcp
-            sudo ufw allow 3000/tcp
-
-            # Verificar configurações do Apache (se estiver instalado)
-            if systemctl is-active apache2 >/dev/null 2>&1; then
-              echo "Stopping Apache..."
-              sudo systemctl stop apache2
-              sudo systemctl disable apache2
-            fi
-
-            # Garantir que o Nginx está configurado como servidor web principal
-            if [ -f "/etc/nginx/sites-enabled/default" ]; then
-              sudo rm /etc/nginx/sites-enabled/default
-            fi
-
-            # Configurar Nginx para usar a porta correta
-            sudo tee /etc/nginx/conf.d/tsmovie.conf << EOF
-            server {
-                listen 80;
-                server_name _;
-
-                # Configuração de cache do navegador
-                location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
-                    expires 1d;
-                    add_header Cache-Control "public, no-transform";
-                }
-
-                location / {
-                    proxy_pass http://localhost:3000;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                    
-                    # Desabilitar cache para o index.html
-                    add_header Cache-Control "no-store, no-cache, must-revalidate";
-                }
-
-                location /api {
-                    proxy_pass http://localhost:8080;
-                    proxy_http_version 1.1;
-                    proxy_set_header Upgrade \$http_upgrade;
-                    proxy_set_header Connection 'upgrade';
-                    proxy_set_header Host \$host;
-                    proxy_cache_bypass \$http_upgrade;
-                }
-            }
-            EOF
-
-            # Testar e reiniciar Nginx
-            sudo nginx -t
-            sudo systemctl restart nginx
-          ENDSSH
-
-      - name: Deploy with Docker Compose
-        run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
-
-            # Parar todos os containers e limpar cache
             docker-compose down --remove-orphans
-            docker system prune -f --volumes
-            
-            # Remover cache do node_modules
-            rm -rf frontend/node_modules
-            rm -rf frontend/build
-
+            docker system prune -f
             # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
             POSTGRES_DB=tsmovie
-            POSTGRES_USER=${{ env.DB_USERNAME }}
-            POSTGRES_PASSWORD=${{ env.DB_PASSWORD }}
-            REACT_APP_API_URL=http://${{ env.VPS_HOST }}
-            REACT_APP_VERSION=$(date +%s)
+            POSTGRES_USER=$(echo "${DB_USERNAME}" | sed 's/ /_/g')  # Substitui espaços por underscores
+            POSTGRES_PASSWORD=$(echo "${DB_PASSWORD}" | sed 's/ /_/g')  # Substitui espaços por underscores
+            REACT_APP_API_URL=http://${VPS_HOST}
             EOF
-
-            # Reconstruir e iniciar containers
-            docker-compose -f docker-compose.prod.yml up -d --build --force-recreate --no-cache
-
-            # Aguardar containers iniciarem
+            docker-compose -f docker-compose.yml up -d --build --force-recreate
             echo "Waiting for containers to start..."
             sleep 30
-
-            # Limpar cache do Nginx
-            sudo rm -rf /var/cache/nginx/*
-            sudo systemctl restart nginx
-
-            # Verificar status dos containers
-            echo "Container Status:"
-            docker-compose -f docker-compose.prod.yml ps
-            
-            # Verificar logs de cada serviço
-            echo "Backend Logs:"
-            docker-compose -f docker-compose.prod.yml logs --tail=20 backend
-            
-            echo "Frontend Logs:"
-            docker-compose -f docker-compose.prod.yml logs --tail=20 frontend
           ENDSSH
+
+      #- name: Verificando saúde após a instalação (Health Check)
+      #  run: |
+      #      ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+      #      echo "Container Status:"
+      #      docker-compose ps
+      #      echo "Database Logs:"
+      #      docker-compose logs --tail=20 db
+      #      echo "Backend Logs:"
+      #      docker-compose logs --tail=20 backend
+      #      echo "Frontend Logs:"
+      #      docker-compose logs --tail=20 frontend
+      #      echo "Checking services..."
+      #      curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+      #      curl -I http://localhost:3000 || echo "Frontend not responding"
+      #      echo "Nginx Status:"
+      #      sudo systemctl status nginx --no-pager
+      #      echo "Nginx Logs:"
+      #      sudo tail -n 20 /var/log/nginx/error.log
+      #    ENDSSH
+
+      - name: Concluído com sucesso
+        run: |
+            echo "Deploy concluído com sucesso!"
