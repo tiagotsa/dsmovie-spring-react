@@ -70,10 +70,11 @@ jobs:
             cd ~/dsmovie-spring-react
             docker-compose down --remove-orphans
             docker system prune -f
+            # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
             POSTGRES_DB=tsmovie
-            POSTGRES_USER=${DB_USERNAME}
-            POSTGRES_PASSWORD=${DB_PASSWORD}
+            POSTGRES_USER=${DB_USERNAME// /_}  # Substitui espaços por underscores
+            POSTGRES_PASSWORD=${DB_PASSWORD// /_}  # Substitui espaços por underscores
             REACT_APP_API_URL=http://${VPS_HOST}
             EOF
             docker-compose -f docker-compose.yml up -d --build --force-recreate
