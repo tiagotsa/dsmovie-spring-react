@@ -22,41 +22,34 @@ jobs:
       - name: Iniciando acesso via SSH no servidor VPS
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
           chmod 600 ~/.ssh/private.key
-          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Instalando e configurando Git on VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Instalar Git se não estiver instalado
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v git &> /dev/null; then
               echo "Installing Git..."
               sudo apt-get update
               sudo apt-get install -y git
             fi
-
-            # Configurar Git
             git config --global init.defaultBranch main
           ENDSSH
 
       - name: Clone aplicação para VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Fazer backup do diretório atual se existir
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if [ -d "~/dsmovie-spring-react" ]; then
               mv ~/dsmovie-spring-react ~/dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
             fi
-            
-            # Clonar repositório
             git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/dsmovie-spring-react
             cd ~/dsmovie-spring-react
           ENDSSH
 
       - name: Configurando e instalando Docker e docker-compose on VPS
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
-            # Instalar Docker se não estiver instalado
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
@@ -64,70 +57,50 @@ jobs:
               sudo usermod -aG docker $USER
               rm get-docker.sh
             fi
-
-            # Instalar Docker Compose se não estiver instalado
             if ! command -v docker-compose &> /dev/null; then
               echo "Installing Docker Compose..."
               sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
             fi
-           
+          ENDSSH
 
       - name: Instalando aplicação no servidor com docker compose (deploy)
         run: |
-          ssh -i ~/.ssh/private.key ${{ env.VPS_USERNAME }}@${{ env.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
-
-            # Parar todos os containers e limpar
             docker-compose down --remove-orphans
             docker system prune -f
-
-            # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
             POSTGRES_DB=tsmovie
-            POSTGRES_USER=${{ env.DB_USERNAME }}
-            POSTGRES_PASSWORD=${{ env.DB_PASSWORD }}
-            REACT_APP_API_URL=http://${{ env.VPS_HOST }}
+            POSTGRES_USER=${{ secrets.DB_USERNAME }}
+            POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
+            REACT_APP_API_URL=http://${{ secrets.VPS_HOST }}
             EOF
-
-            # Reconstruir e iniciar containers
-            docker-compose -f docker-compose.yml up -d --build --force-recreate
-
-            # Aguardar containers iniciarem
+            docker-compose up -d --build --force-recreate
             echo "Waiting for containers to start..."
             sleep 30
+          ENDSSH
 
-      - name: Verificando saude após a instalação (Health Check)
+      - name: Verificando saúde após a instalação (Health Check)
         run: |
-            # Verificar status dos containers
+            ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             echo "Container Status:"
-            #docker-compose -f docker-compose.yml ps
-            
-            
-            # Verificar logs de cada serviço
+            docker-compose ps
             echo "Database Logs:"
-            #docker-compose -f docker-compose.yml logs --tail=20 db
-            
+            docker-compose logs --tail=20 db
             echo "Backend Logs:"
-            #docker-compose -f docker-compose.yml logs --tail=20 backend
-            
+            docker-compose logs --tail=20 backend
             echo "Frontend Logs:"
-            #docker-compose -f docker-compose.yml logs --tail=20 frontend
-
-            # Verificar se os serviços estão respondendo
+            docker-compose logs --tail=20 frontend
             echo "Checking services..."
-            #curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
-            #curl -I http://localhost:3000 || echo "Frontend not responding"
-
-            # Verificar status do Nginx
+            curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+            curl -I http://localhost:3000 || echo "Frontend not responding"
             echo "Nginx Status:"
-            #sudo systemctl status nginx --no-pager
-            
-            # Verificar logs do Nginx
+            sudo systemctl status nginx --no-pager
             echo "Nginx Logs:"
-            #sudo tail -n 20 /var/log/nginx/error.log
+            sudo tail -n 20 /var/log/nginx/error.log
+          ENDSSH
 
-      - name: Concluido com sucesso
+      - name: Concluído com sucesso
         run: |
-            # Verificar status dos containers
             echo "Deploy concluído com sucesso!"
