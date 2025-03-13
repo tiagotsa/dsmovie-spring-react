@@ -74,7 +74,7 @@ jobs:
             cat > .env << EOF
             POSTGRES_DB=tsmovie
             POSTGRES_USER=$(echo "${DB_USERNAME}" | sed 's/ /_/g')  # Substitui espaços por underscores
-            POSTGRES_PASSWORD=${DB_PASSWORD// /_}  # Substitui espaços por underscores
+            POSTGRES_PASSWORD=$(echo "${DB_PASSWORD}" | sed 's/ /_/g')  # Substitui espaços por underscores
             REACT_APP_API_URL=http://${VPS_HOST}
             EOF
             docker-compose -f docker-compose.yml up -d --build --force-recreate
