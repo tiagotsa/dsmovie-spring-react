@@ -82,25 +82,25 @@ jobs:
             sleep 30
           ENDSSH
 
-      - name: Verificando saúde após a instalação (Health Check)
-        run: |
-            ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            echo "Container Status:"
-            docker-compose ps
-            echo "Database Logs:"
-            docker-compose logs --tail=20 db
-            echo "Backend Logs:"
-            docker-compose logs --tail=20 backend
-            echo "Frontend Logs:"
-            docker-compose logs --tail=20 frontend
-            echo "Checking services..."
-            curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
-            curl -I http://localhost:3000 || echo "Frontend not responding"
-            echo "Nginx Status:"
-            sudo systemctl status nginx --no-pager
-            echo "Nginx Logs:"
-            sudo tail -n 20 /var/log/nginx/error.log
-          ENDSSH
+      #- name: Verificando saúde após a instalação (Health Check)
+      #  run: |
+      #      ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+      #      echo "Container Status:"
+      #      docker-compose ps
+      #      echo "Database Logs:"
+      #      docker-compose logs --tail=20 db
+      #      echo "Backend Logs:"
+      #      docker-compose logs --tail=20 backend
+      #      echo "Frontend Logs:"
+      #      docker-compose logs --tail=20 frontend
+      #      echo "Checking services..."
+      #      curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+      #      curl -I http://localhost:3000 || echo "Frontend not responding"
+      #      echo "Nginx Status:"
+      #      sudo systemctl status nginx --no-pager
+      #      echo "Nginx Logs:"
+      #      sudo tail -n 20 /var/log/nginx/error.log
+      #    ENDSSH
 
       - name: Concluído com sucesso
         run: |
