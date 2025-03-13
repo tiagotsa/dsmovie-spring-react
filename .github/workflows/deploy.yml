@@ -73,7 +73,7 @@ jobs:
             # Criar arquivo .env com as variáveis de ambiente
             cat > .env << EOF
             POSTGRES_DB=tsmovie
-            POSTGRES_USER=${DB_USERNAME// /_}  # Substitui espaços por underscores
+            POSTGRES_USER=$(echo "${DB_USERNAME}" | sed 's/ /_/g')  # Substitui espaços por underscores
             POSTGRES_PASSWORD=${DB_PASSWORD// /_}  # Substitui espaços por underscores
             REACT_APP_API_URL=http://${VPS_HOST}
             EOF
