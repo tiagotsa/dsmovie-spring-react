@@ -15,11 +15,7 @@ jobs:
       VPS_HOST: 145.223.29.209
       VPS_USERNAME: root
       SSH_PRIVATE_KEY: |
-        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-        QyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmwAAAKChuvR3obr0
-        dwAAAAtzc2gtZWQyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmw
-        AAAEBd0XXpyKOAqNOzLBb8J8/NtPILur6U3EbzXP5sa+lxG0jOjnbocguP8xg6q+IGxQGN
-        D1ktbLB1OOUH7QwAUoubAAAAGnRpYWdvLmFsbWVpZGF0QG91dGxvb2suY29tAQID
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZWQyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmwAAAKChuvR3obr0dwAAAAtzc2gtZWQyNTUxOQAAACBIzo526HILj/MYOqviBsUBjQ9ZLWywdTjlB+0MAFKLmwAAAEBd0XXpyKOAqNOzLBb8J8/NtPILur6U3EbzXP5sa+lxG0jOjnbocguP8xg6q+IGxQGND1ktbLB1OOUH7QwAUoubAAAAGnRpYWdvLmFsbWVpZGF0QG91dGxvb2suY29tAQID
 
     steps:
       - uses: actions/checkout@v3
@@ -86,26 +82,6 @@ jobs:
             echo "Waiting for containers to start..."
             sleep 30
           ENDSSH
-
-      #- name: Verificando saúde após a instalação (Health Check)
-      #  run: |
-      #      ssh -i ~/.ssh/private.key $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
-      #      echo "Container Status:"
-      #      docker-compose ps
-      #      echo "Database Logs:"
-      #      docker-compose logs --tail=20 db
-      #      echo "Backend Logs:"
-      #      docker-compose logs --tail=20 backend
-      #      echo "Frontend Logs:"
-      #      docker-compose logs --tail=20 frontend
-      #      echo "Checking services..."
-      #      curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
-      #      curl -I http://localhost:3000 || echo "Frontend not responding"
-      #      echo "Nginx Status:"
-      #      sudo systemctl status nginx --no-pager
-      #      echo "Nginx Logs:"
-      #      sudo tail -n 20 /var/log/nginx/error.log
-      #    ENDSSH
 
       - name: Concluído com sucesso
         run: |
