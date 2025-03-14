@@ -8,20 +8,16 @@ RUN mvn clean package -DskipTests
 FROM openjdk:17-jdk-slim
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-COPY --from=build /app/src/main/resources/import.sql /app/import.sql
 
-# Define as variáveis de ambiente padrão
+# Variáveis de ambiente para configuração do banco de dados
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/tsmovie
 ENV SPRING_DATASOURCE_USERNAME=postgres
-ENV SPRING_DATASOURCE_PASSWORD=1234
-ENV SPRING_JPA_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
-ENV SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
-ENV SPRING_JPA_HIBERNATE_DDL_AUTO=create
-ENV SPRING_JPA_GENERATE_DDL=true
+ENV SPRING_DATASOURCE_PASSWORD=1234567
+
+# Configurações do JPA
+ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
 ENV SPRING_JPA_SHOW_SQL=true
-ENV SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION=true
-ENV SPRING_SQL_INIT_MODE=always
 ENV SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=true
 
 # Comando para iniciar a aplicação
