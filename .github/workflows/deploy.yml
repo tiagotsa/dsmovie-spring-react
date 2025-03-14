@@ -11,38 +11,42 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout do Código
+      - name: 📥 Checkout do código
         uses: actions/checkout@v3
 
-      - name: Configurar Chave SSH e Acesso ao Servidor
+      - name: 🔑 Configurando chave SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_PRIVATE_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
         run: |
           mkdir -p ~/.ssh/
-          printf "%s\n" "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
 
-      - name: Testando conexão SSH
+      - name: ✅ Testando conexão SSH
+        env:
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $VPS_USERNAME@$VPS_HOST "echo Conexão SSH bem-sucedida!"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $VPS_USERNAME@$VPS_HOST "echo 'Conexão SSH bem-sucedida!'"
 
-      - name: Instalando e Configurando Git no Servidor
+      - name: 🛠 Instalando e configurando Git no VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v git &> /dev/null; then
               echo "Instalando Git..."
-              sudo apt-get update
-              sudo apt-get install -y git
+              sudo apt-get update && sudo apt-get install -y git
             fi
             git config --global init.defaultBranch main
           ENDSSH
 
-      - name: Clonando Aplicação no Servidor
+      - name: 🚀 Clone da aplicação no VPS
+        env:
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
             cd ~
             if [ -d "dsmovie-spring-react" ]; then
               mv dsmovie-spring-react dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
@@ -51,19 +55,19 @@ jobs:
             cd dsmovie-spring-react
           ENDSSH
 
-      - name: Configurar Variáveis de Ambiente no Servidor
+      - name: 🔧 Configurando ambiente no VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 $VPS_USERNAME@$VPS_HOST "cat > ~/dsmovie-spring-react/.env << 'EOF'
-          POSTGRES_DB=tsmovie
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=1234
-          SPRING_PROFILES_ACTIVE=prod
-          REACT_APP_BACKEND_URL=http://$VPS_HOST:8080
-          EOF"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            echo "POSTGRES_DB=tsmovie" > ~/dsmovie-spring-react/.env
+            echo "POSTGRES_USER=postgres" >> ~/dsmovie-spring-react/.env
+            echo "POSTGRES_PASSWORD=1234" >> ~/dsmovie-spring-react/.env
+            echo "SPRING_PROFILES_ACTIVE=prod" >> ~/dsmovie-spring-react/.env
+            echo "REACT_APP_BACKEND_URL=http://${{ secrets.VPS_HOST }}:8080" >> ~/dsmovie-spring-react/.env
+          ENDSSH
 
-      - name: Instalando Docker e Docker Compose no Servidor
+      - name: 🐳 Instalando Docker e Docker Compose no VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v docker &> /dev/null; then
               echo "Instalando Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
@@ -78,9 +82,9 @@ jobs:
             fi
           ENDSSH
 
-      - name: Fazendo Deploy da Aplicação com Docker Compose
+      - name: 🚀 Deploy da aplicação com Docker Compose
         run: |
-          ssh -i ~/.ssh/id_ed25519 $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
             docker-compose -f docker-compose.prod.yml down
             docker system prune -f
@@ -89,5 +93,6 @@ jobs:
             sleep 30
           ENDSSH
 
-      - name: Concluído com Sucesso
-        run: echo "🚀 Deploy concluído com sucesso!"
+      - name: ✅ Concluído com sucesso!
+        run: |
+          echo "🚀 Deploy concluído com sucesso! 🎉"
