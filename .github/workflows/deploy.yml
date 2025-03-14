@@ -18,14 +18,13 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          cat ~/.ssh/id_rsa
 
       - name: Test SSH Connection
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
         run: |
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'echo "SSH Connection Test Successful"'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'echo "SSH Connection Test Successful"'
 
       - name: Deploy to VPS
         if: success()
@@ -35,7 +34,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd ~/dsmovie-spring-react
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             
             # Create .env file
             cat > .env << 'ENVFILE'
@@ -48,6 +48,11 @@ jobs:
             
             # Deploy with Docker
             docker-compose -f docker-compose.prod.yml down
-            docker system prune -f
-            docker-compose -f docker-compose.prod.yml up -d --build
+            docker system prune -af --volumes
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            # Verify deployment
+            docker ps
+            docker logs dsmovie-spring-react-frontend-1
           EOF
