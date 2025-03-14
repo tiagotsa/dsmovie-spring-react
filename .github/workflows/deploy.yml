@@ -19,15 +19,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Test SSH Connection
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'echo "SSH Connection Test Successful"'
-
       - name: Deploy to VPS
-        if: success()
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
@@ -45,8 +37,22 @@ jobs:
             REACT_APP_BACKEND_URL=http://${{ secrets.VPS_HOST }}:8080
             ENVFILE
             
-            # Deploy with Docker
+            # Stop and remove all containers
             docker-compose -f docker-compose.prod.yml down
-            docker system prune -f
-            docker-compose -f docker-compose.prod.yml up -d --build
+            
+            # Remove all images to force rebuild
+            docker rmi $(docker images -q) -f
+            
+            # Clean docker system
+            docker system prune -af
+            
+            # Build without cache and start containers
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            # Show running containers
+            docker ps
+            
+            # Show frontend logs
+            docker logs dsmovie-spring-react-frontend-1
           EOF
