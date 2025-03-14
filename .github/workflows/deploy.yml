@@ -1,3 +1,24 @@
+Skip to content
+Navigation Menu
+tiagotsa
+dsmovie-spring-react
+
+Type / to search
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+Insights
+Settings
+Deploy to VPS
+comentando todo helath check #108
+Jobs
+Run details
+Workflow file for this run
+.github/workflows/deploy.yml at bc2de43
 name: Deploy to VPS
 
 on:
@@ -9,90 +30,95 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
     steps:
-      - name: 📥 Checkout do código
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: 🔑 Configurando chave SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.VPS_PRIVATE_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+      - name: Iniciando acesso via SSH no servidor VPS
         run: |
           mkdir -p ~/.ssh/
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
-
-      - name: ✅ Testando conexão SSH
-        env:
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+          chmod 600 ~/.ssh/private.key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+      - name: Instalando e configurando Git on VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $VPS_USERNAME@$VPS_HOST "echo 'Conexão SSH bem-sucedida!'"
-
-      - name: 🛠 Instalando e configurando Git no VPS
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v git &> /dev/null; then
-              echo "Instalando Git..."
-              sudo apt-get update && sudo apt-get install -y git
+              echo "Installing Git..."
+              sudo apt-get update
+              sudo apt-get install -y git
             fi
             git config --global init.defaultBranch main
           ENDSSH
-
-      - name: 🚀 Clone da aplicação no VPS
-        env:
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+      - name: Clone aplicação para VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no $VPS_USERNAME@$VPS_HOST << 'ENDSSH'
-            cd ~
-            if [ -d "dsmovie-spring-react" ]; then
-              mv dsmovie-spring-react dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            if [ -d "~/dsmovie-spring-react" ]; then
+              mv ~/dsmovie-spring-react ~/dsmovie-spring-react_backup_$(date +%Y%m%d_%H%M%S)
             fi
-            git clone https://github.com/tiagotsa/dsmovie-spring-react.git
-            cd dsmovie-spring-react
+            git clone https://github.com/tiagotsa/dsmovie-spring-react.git ~/dsmovie-spring-react
+            cd ~/dsmovie-spring-react
           ENDSSH
-
-      - name: 🔧 Configurando ambiente no VPS
+      - name: Configurando e instalando Docker e docker-compose on VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
-            echo "POSTGRES_DB=tsmovie" > ~/dsmovie-spring-react/.env
-            echo "POSTGRES_USER=postgres" >> ~/dsmovie-spring-react/.env
-            echo "POSTGRES_PASSWORD=1234" >> ~/dsmovie-spring-react/.env
-            echo "SPRING_PROFILES_ACTIVE=prod" >> ~/dsmovie-spring-react/.env
-            echo "REACT_APP_BACKEND_URL=http://${{ secrets.VPS_HOST }}:8080" >> ~/dsmovie-spring-react/.env
-          ENDSSH
-
-      - name: 🐳 Instalando Docker e Docker Compose no VPS
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             if ! command -v docker &> /dev/null; then
-              echo "Instalando Docker..."
+              echo "Installing Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
               sudo sh get-docker.sh
               sudo usermod -aG docker $USER
               rm get-docker.sh
             fi
             if ! command -v docker-compose &> /dev/null; then
-              echo "Instalando Docker Compose..."
+              echo "Installing Docker Compose..."
               sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
             fi
           ENDSSH
-
-      - name: 🚀 Deploy da aplicação com Docker Compose
+      - name: Instalando aplicação no servidor com docker compose (deploy)
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             cd ~/dsmovie-spring-react
-            docker-compose -f docker-compose.prod.yml down
+            docker-compose down --remove-orphans
             docker system prune -f
-            docker-compose -f docker-compose.prod.yml up -d --build
-            echo "Aguardando containers iniciarem..."
+            # Criar arquivo .env com as variáveis de ambiente
+            cat > .env << EOF
+            POSTGRES_DB=tsmovie
+            POSTGRES_USER=$(echo "${DB_USERNAME}" | sed 's/ /_/g')  # Substitui espaços por underscores
+            POSTGRES_PASSWORD=$(echo "${DB_PASSWORD}" | sed 's/ /_/g')  # Substitui espaços por underscores
+            REACT_APP_API_URL=http://${VPS_HOST}
+            EOF
+            docker-compose -f docker-compose.yml up -d --build --force-recreate
+            echo "Waiting for containers to start..."
             sleep 30
           ENDSSH
+      #- name: Verificando saúde após a instalação (Health Check)
+      #  run: |
+      #      ssh -i ~/.ssh/private.key ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+      #      echo "Container Status:"
+      #      docker-compose ps
+      #      echo "Database Logs:"
+      #      docker-compose logs --tail=20 db
+      #      echo "Backend Logs:"
+      #      docker-compose logs --tail=20 backend
+      #      echo "Frontend Logs:"
+      #      docker-compose logs --tail=20 frontend
+      #      echo "Checking services..."
+      #      curl -I http://localhost:8080/actuator/health || echo "Backend not responding"
+      #      curl -I http://localhost:3000 || echo "Frontend not responding"
+      #      echo "Nginx Status:"
+      #      sudo systemctl status nginx --no-pager
+      #      echo "Nginx Logs:"
+      #      sudo tail -n 20 /var/log/nginx/error.log
+      #    ENDSSH
 
-      - name: ✅ Concluído com sucesso!
+      - name: Concluído com sucesso
         run: |
-          echo "🚀 Deploy concluído com sucesso! 🎉"
+            echo "Deploy concluído com sucesso!"
+comentando todo helath check · tiagotsa/dsmovie-spring-react@bc2de43
