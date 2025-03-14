@@ -5,10 +5,10 @@ FROM node:16-alpine as build
 WORKDIR /app
 
 # Copia apenas os arquivos de dependência primeiro
-COPY package.json yarn.lock ./
+COPY package*.json ./
 
 # Instala as dependências
-RUN npm install --frozen-lockfile --network-timeout 600000
+RUN npm install
 
 # Copia o restante dos arquivos
 COPY . .
@@ -17,7 +17,7 @@ COPY . .
 ENV CI=false
 
 # Build da aplicação
-RUN npm build
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
