@@ -4,6 +4,9 @@ FROM node:16 as build
 # Define o diretório de trabalho
 WORKDIR /app
 
+# Adiciona argumento para forçar rebuild
+ARG CACHEBUST=1
+
 # Copia apenas os arquivos de dependência primeiro
 COPY package*.json ./
 
