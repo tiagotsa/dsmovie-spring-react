@@ -1,5 +1,5 @@
 # Build stage
-FROM node:16-alpine as build
+FROM node:16 as build
 
 # Define o diretório de trabalho
 WORKDIR /app
@@ -20,7 +20,7 @@ ENV CI=false
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:stable
 
 # Copia os arquivos buildados
 COPY --from=build /app/build /usr/share/nginx/html
