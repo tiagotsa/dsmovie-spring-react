@@ -28,31 +28,24 @@ jobs:
             cd ~/dsmovie-spring-react
             git pull origin main
             
-            # Create .env file
-            cat > .env << 'ENVFILE'
-            POSTGRES_DB=tsmovie
-            POSTGRES_USER=postgres
-            POSTGRES_PASSWORD=1234
-            SPRING_PROFILES_ACTIVE=prod
-            REACT_APP_BACKEND_URL=http://${{ secrets.VPS_HOST }}:8080
-            ENVFILE
+            # Criar arquivo .env com timestamp para forçar rebuild
+            printf "POSTGRES_DB=tsmovie\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=1234\nSPRING_PROFILES_ACTIVE=prod\nREACT_APP_BACKEND_URL=http://$VPS_HOST:8080\nCACHEBUST=$(date +%s)" > .env
             
-            # Stop and remove all containers
-            docker-compose -f docker-compose.prod.yml down
+            # Parar containers
+            docker-compose -f docker-compose.prod.yml down || true
+            docker rm -f $(docker ps -aq) || true
             
-            # Remove all images to force rebuild
-            docker rmi $(docker images -q) -f
-            
-            # Clean docker system
+            # Limpar imagens e cache
+            docker rmi $(docker images -q) -f || true
             docker system prune -af
             
-            # Build without cache and start containers
-            docker-compose -f docker-compose.prod.yml build --no-cache
-            docker-compose -f docker-compose.prod.yml up -d
+            # Reconstruir sem cache e iniciar
+            CACHEBUST=$(date +%s) docker-compose -f docker-compose.prod.yml up -d --build
             
-            # Show running containers
+            # Aguardar containers iniciarem
+            sleep 10
+            
+            # Mostrar status
             docker ps
-            
-            # Show frontend logs
             docker logs dsmovie-spring-react-frontend-1
           EOF
