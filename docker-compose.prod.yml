@@ -30,7 +30,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: 'false'
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -51,7 +51,7 @@ services:
         CACHEBUST: ${CACHEBUST:-1}
         REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:8080}
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       - backend
     restart: always
