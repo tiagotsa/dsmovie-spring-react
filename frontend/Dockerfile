@@ -25,20 +25,8 @@ FROM nginx:alpine
 # Copia os arquivos buildados
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Cria diretório para configuração do nginx
-RUN mkdir -p /etc/nginx/conf.d
-
-# Configuração do nginx para desabilitar cache
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-        add_header Cache-Control "no-store, no-cache, must-revalidate"; \
-        add_header Pragma "no-cache"; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Configuração do nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expõe a porta 80
 EXPOSE 80
