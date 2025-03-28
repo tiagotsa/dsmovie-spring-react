@@ -1,5 +1,5 @@
 # Build stage
-FROM node:16-alpine as build
+FROM node:16 as build
 
 # Define o diretório de trabalho
 WORKDIR /app
@@ -19,20 +19,14 @@ COPY . .
 # Define a variável de ambiente para evitar tratamento de warnings como erros
 ENV CI=false
 
-ARG REACT_APP_BACKEND_URL
-ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
-
 # Build da aplicação
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:stable
 
 # Copia os arquivos buildados
 COPY --from=build /app/build /usr/share/nginx/html
-
-# Configuração do nginx
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expõe a porta 80
 EXPOSE 80
