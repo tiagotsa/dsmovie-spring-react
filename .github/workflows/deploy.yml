@@ -8,28 +8,44 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Create env file
-        run: |
-          echo "REACT_APP_BACKEND_URL=https://filmestsa.shop:8080" > frontend/.env
-          
+
       - name: Setup SSH
         run: |
-          mkdir -p ~/.ssh/
-          echo "${{ secrets.VPS_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          
+
       - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
         run: |
-          ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} "cd ~/dsmovie-spring-react && \
-          git pull origin main && \
-          docker-compose -f docker-compose.prod.yml down && \
-          docker system prune -af && \
-          CACHEBUST=$(date +%s) docker-compose -f docker-compose.prod.yml up -d --build && \
-          sleep 10 && \
-          docker ps && \
-          docker logs dsmovie-spring-react-frontend-1"
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd ~/dsmovie-spring-react
+            git pull origin main
+            
+            # Criar arquivo .env com timestamp para forçar rebuild
+            printf "POSTGRES_DB=tsmovie\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=1234\nSPRING_PROFILES_ACTIVE=prod\nREACT_APP_BACKEND_URL=http://$VPS_HOST:8080\nCACHEBUST=$(date +%s)" > .env
+            
+            # Parar containers
+            docker-compose -f docker-compose.prod.yml down || true
+            docker rm -f $(docker ps -aq) || true
+            
+            # Limpar imagens e cache
+            docker rmi $(docker images -q) -f || true
+            docker system prune -af
+            
+            # Reconstruir sem cache e iniciar
+            CACHEBUST=$(date +%s) docker-compose -f docker-compose.prod.yml up -d --build
+            
+            # Aguardar containers iniciarem
+            sleep 10
+            
+            # Mostrar status
+            docker ps
+            docker logs dsmovie-spring-react-frontend-1
+          EOF
