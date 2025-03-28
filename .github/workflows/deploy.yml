@@ -18,36 +18,20 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          cat ~/.ssh/id_rsa
-
-      - name: Test SSH Connection
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-        run: |
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} 'echo "SSH Connection Test Successful"'
 
       - name: Deploy to VPS
-        if: success()
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'EOF'
-            cd ~/dsmovie-spring-react
-            git pull origin main
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} '
+            cd ~/dsmovie-spring-react &&
+            git fetch origin main &&
+            git reset --hard origin/main &&
             
-            # Create .env file
-            cat > .env << 'ENVFILE'
-            POSTGRES_DB=tsmovie
-            POSTGRES_USER=postgres
-            POSTGRES_PASSWORD=1234
-            SPRING_PROFILES_ACTIVE=prod
-            REACT_APP_BACKEND_URL=http://${{ secrets.VPS_HOST }}:8080
-            ENVFILE
+            printf "POSTGRES_DB=tsmovie\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=1234\nSPRING_PROFILES_ACTIVE=prod\nREACT_APP_BACKEND_URL=http://filmestsa.shop/api\nCACHEBUST=$(date +%%s)\n" > .env &&
             
-            # Deploy with Docker
-            docker-compose -f docker-compose.prod.yml down
-            docker system prune -f
-            docker-compose -f docker-compose.prod.yml up -d --build
-          EOF
+            docker-compose -f docker-compose.prod.yml down &&
+            docker system prune -af --volumes &&
+            CACHEBUST=$(date +%s) docker-compose -f docker-compose.prod.yml up -d --build
+          '
