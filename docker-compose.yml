@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dsmovie-network
 
   backend:
     build: 
@@ -24,6 +26,25 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/tsmovie
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 1234
+    networks:
+      - dsmovie-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_BACKEND_URL=http://backend:8080
+    depends_on:
+      - backend
+    networks:
+      - dsmovie-network
+
+networks:
+  dsmovie-network:
+    driver: bridge
 
 volumes:
   postgres_data:
