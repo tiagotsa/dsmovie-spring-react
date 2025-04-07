@@ -20,5 +20,5 @@ ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
 ENV SPRING_JPA_SHOW_SQL=true
 ENV SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=true
 
-# Comando para iniciar a aplicação
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Removendo o comando ENTRYPOINT para evitar execução automática
+# ENTRYPOINT ["java", "-jar", "app.jar"]
