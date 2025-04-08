@@ -40,3 +40,9 @@ yarn.lock
 .DS_Store
 *.swp
 *.swo
+
+# Exceções para Dockerfile e docker-compose.yml
+!backend/Dockerfile
+!backend/docker-compose.yml
+
+!frontend/src/utils/requests.ts

@@ -20,6 +20,4 @@ ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
 ENV SPRING_JPA_SHOW_SQL=true
 ENV SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=true
 
-EXPOSE 8080
-# Removendo o comando ENTRYPOINT para evitar execução automática
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "app.jar"]
