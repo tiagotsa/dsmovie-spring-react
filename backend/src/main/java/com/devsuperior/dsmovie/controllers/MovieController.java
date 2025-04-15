@@ -12,7 +12,7 @@ import com.devsuperior.dsmovie.services.MovieService;
 
 
 @RestController
-@RequestMapping(value = "/api/movies")
+@RequestMapping(value = "/movies")
 public class MovieController {
 	
 	 @Autowired
