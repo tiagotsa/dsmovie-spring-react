@@ -1,11 +1,15 @@
-version: '3.8'
-
-services:
   frontend:
+    container_name: dsmovie-frontend-nginx # Adiciona nome
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./frontend  # Certifique-se que este é o diretório correto
+      dockerfile: Dockerfile # Certifique-se que o nome está correto
+      args:                  # Passa como argumento de BUILD
+        REACT_APP_API_URL: /api # O prefixo correto
     ports:
-      - "3000:80"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080
+      - "80:80"              # Mapeia porta 80 do HOST para 80 do CONTAINER
+    depends_on:
+      - backend             # Depende do backend (assumindo que você tem o serviço backend)
+    restart: always
+    networks:
+      - dsmovie-network     # Conecta à rede
+    # REMOVA qualquer seção 'environment:' que possa existir aqui

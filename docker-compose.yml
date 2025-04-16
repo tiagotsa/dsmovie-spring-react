@@ -3,39 +3,58 @@ version: '3.8'
 services:
   db:
     image: postgres:13
+    container_name: dsmovie-db
     environment:
       POSTGRES_DB: tsmovie
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_PASSWORD: 1234       # ATENÇÃO: Use secrets em produção!
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    networks:
+      - dsmovie-network
 
   backend:
-    build: 
-      context: ./backend
+    container_name: dsmovie-backend
+    build:
+      context: ./backend           # Certifique-se que o diretório backend está correto
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8080:8080"               # Mapeia 8080 do host para 8080 do container
     depends_on:
       - db
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/tsmovie # Ajuste se necessário
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=1234       # ATENÇÃO: Use secrets!
       - SPRING_PROFILES_ACTIVE=prod
+      # IMPORTANTE: Configure CORS no Spring para permitir 'https://filmestsa.shop'
     restart: always
+    networks:
+      - dsmovie-network
 
   frontend:
+    container_name: dsmovie-frontend-nginx # Nome correto
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: ./frontend          # Certifique-se que o diretório frontend está correto
+      dockerfile: Dockerfile       # Certifique-se que o nome do Dockerfile está correto
+      args:                        # Passa argumento para o build
+        REACT_APP_API_URL: /api    # Argumento correto
     ports:
-      - "80:80"
+      - "80:80"                   # Porta correta
     depends_on:
       - backend
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080
     restart: always
+    networks:
+      - dsmovie-network
+    # NENHUMA seção 'environment:' aqui para o frontend
 
 volumes:
   postgres_data:
+
+networks:
+  dsmovie-network:
+    driver: bridge
+
