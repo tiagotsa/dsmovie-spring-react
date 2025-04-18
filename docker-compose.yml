@@ -1,60 +1,73 @@
-version: '3.8'
+# Remove a linha 'version:' - é obsoleta no Compose V2+
+# version: '3.8' # <-- Pode remover esta linha
 
 services:
   db:
     image: postgres:13
-    container_name: dsmovie-db
+    container_name: dsmovie-db        # Nome para facilitar referência
     environment:
       POSTGRES_DB: tsmovie
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 1234       # ATENÇÃO: Use secrets em produção!
     ports:
+      # Mapeia porta 5433 do host para 5432 do container (opcional, para acesso externo ao DB)
       - "5433:5432"
     volumes:
+      # Persiste os dados do banco de dados
       - postgres_data:/var/lib/postgresql/data
     restart: always
-    networks:
+    networks:                         # Conecta à rede customizada
       - dsmovie-network
 
   backend:
-    container_name: dsmovie-backend
+    container_name: dsmovie-backend   # Nome para facilitar referência
     build:
-      context: ./backend           # Certifique-se que o diretório backend está correto
-      dockerfile: Dockerfile
+      # Diretório onde está o Dockerfile e código do backend
+      context: ./backend
+      dockerfile: Dockerfile         # Nome do Dockerfile do backend
     ports:
-      - "8080:8080"               # Mapeia 8080 do host para 8080 do container
+      # Mapeia 8080 do host para 8080 do container (opcional, para testes diretos)
+      - "8080:8080"
     depends_on:
+      # Garante que o DB inicie antes
       - db
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/tsmovie # Ajuste se necessário
+      # Configuração para conectar ao serviço 'db' na porta interna 5432
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/tsmovie # Verifique se está correto para seu app Spring
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=1234       # ATENÇÃO: Use secrets!
+      - SPRING_DATASOURCE_PASSWORD=1234       # ATENÇÃO: Use secrets em produção!
       - SPRING_PROFILES_ACTIVE=prod
-      # IMPORTANTE: Configure CORS no Spring para permitir 'https://filmestsa.shop'
+      # IMPORTANTE: Configure CORS no Spring Boot para permitir a origem 'https://filmestsa.shop'
     restart: always
-    networks:
+    networks:                         # Conecta à rede customizada
       - dsmovie-network
 
   frontend:
-    container_name: dsmovie-frontend-nginx # Nome correto
+    container_name: dsmovie-frontend-nginx # Nome correto do container
     build:
-      context: ./frontend          # Certifique-se que o diretório frontend está correto
-      dockerfile: Dockerfile       # Certifique-se que o nome do Dockerfile está correto
-      args:                        # Passa argumento para o build
-        REACT_APP_API_URL: /api    # Argumento correto
+      # Diretório onde está o Dockerfile e código do frontend
+      context: ./frontend
+      dockerfile: Dockerfile         # Nome do Dockerfile do frontend
+      args:                          # Passa argumentos para o build do Dockerfile
+        # Argumento para ser usado no build do React via Dockerfile (ARG/ENV)
+        REACT_APP_API_URL: /api
     ports:
-      - "80:80"                   # Porta correta
+      # ---- CORREÇÃO PRINCIPAL ----
+      # Mapeia porta 80 do HOST para porta 80 do CONTAINER (onde Nginx escuta)
+      - "80:80"
     depends_on:
+      # Garante que o backend inicie antes (não garante que esteja pronto)
       - backend
     restart: always
-    networks:
+    networks:                         # Conecta à rede customizada
       - dsmovie-network
-    # NENHUMA seção 'environment:' aqui para o frontend
+    # NENHUMA seção 'environment:' deve estar aqui para REACT_APP_API_URL
 
 volumes:
+  # Define o volume nomeado para persistir dados do Postgres
   postgres_data:
 
 networks:
+  # Define a rede customizada para comunicação entre containers
   dsmovie-network:
     driver: bridge
-
