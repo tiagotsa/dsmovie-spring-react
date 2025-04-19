@@ -1,64 +1,77 @@
+# Nome do Workflow
 name: Deploy to VPS
 
+# Gatilhos: Roda quando houver push na branch 'main' OU manualmente
 on:
   push:
-    branches: ["main"] # Roda quando há push na branch main
-  workflow_dispatch: # Permite rodar manualmente
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
+  # Nome do Job
   deploy:
-    runs-on: ubuntu-latest # Usa a última versão do Ubuntu como runner
+    # Runner a ser usado (ambiente de execução)
+    runs-on: ubuntu-latest
 
+    # Etapas a serem executadas no job
     steps:
-      # 1. Obtém o código do seu repositório
+      # Etapa 1: Baixa o código do seu repositório para o runner do Actions
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Configura a chave SSH para conectar à VPS
+      # Etapa 2: Configura a chave SSH para permitir a conexão com a VPS
       - name: Setup SSH
+        # Cria diretório .ssh, grava a chave privada (do secret) em id_rsa,
+        # ajusta permissões e adiciona a chave do host da VPS para evitar prompts.
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          # Adiciona a chave do host da VPS para evitar prompts manuais
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      # 3. Executa os comandos de deploy na VPS via SSH
+      # Etapa 3: Conecta à VPS via SSH e executa os comandos de deploy
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3 # Action popular para SSH
+        # Usa uma Action popular para facilitar a execução de comandos via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        # Passa as credenciais e o script a ser executado
         with:
-          host: ${{ secrets.VPS_HOST }} # IP ou hostname da VPS (definido nos Secrets do repo)
-          username: ${{ secrets.VPS_USERNAME }} # Usuário SSH (ex: root) (definido nos Secrets)
-          key: ${{ secrets.SSH_PRIVATE_KEY }} # Chave privada SSH (definida nos Secrets)
+          host: ${{ secrets.VPS_HOST }} # IP ou hostname da VPS (vem dos Secrets)
+          username: ${{ secrets.VPS_USERNAME }} # Usuário SSH (ex: root) (vem dos Secrets)
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Chave privada SSH (vem dos Secrets)
+          # Script multi-linha a ser executado na VPS
           script: |
-            # Navega para o diretório do projeto na VPS
+            # Garante que estamos no diretório correto do projeto na VPS
             echo ">>> Navigating to project directory..."
-            cd /root/dsmovie-spring-react || exit 1 # Garante que o diretório existe, senão falha
+            cd /root/dsmovie-spring-react || exit 1 # Falha se o diretório não existir
 
-            # Puxa as últimas alterações do Git (branch main)
+            # Atualiza o código local com a versão mais recente da branch 'main' do Git
             echo ">>> Pulling latest changes from Git..."
             git fetch origin main
-            git reset --hard origin/main # Garante que a cópia local seja idêntica à remota
+            git reset --hard origin/main # Força o estado local a ser igual ao remoto
 
             # --- CONSTRUÇÃO E DEPLOY COM DOCKER COMPOSE ---
 
-            # 1. Constrói as imagens (se necessário) usando o docker-compose.yml principal
-            #    Isso vai usar os build args (REACT_APP_API_URL) definidos nele.
-            echo ">>> Building Docker images..."
-            docker-compose build
+            # 1. Constrói (ou reconstrói) as imagens Docker definidas no compose file.
+            #    USA EXPLICITAMENTE o arquivo 'docker-compose.yml'.
+            echo ">>> Building Docker images using docker-compose.yml..."
+            docker-compose -f docker-compose.yml build
 
-            # 2. Para e remove os containers e redes definidos no docker-compose.yml atual
-            #    Essencial para evitar conflitos de nome e aplicar novas configs/imagens.
+            # 2. Para e REMOVE os containers e redes da execução anterior.
+            #    USA EXPLICITAMENTE o arquivo 'docker-compose.yml'.
+            #    ESSENCIAL para limpar o estado antigo e evitar conflitos.
             echo ">>> Stopping and removing old containers..."
-            docker-compose down
+            docker-compose -f docker-compose.yml down
 
-            # 3. Sobe os novos containers em background usando as imagens recém-construídas
-            #    e a configuração do docker-compose.yml atual.
+            # 3. Sobe os novos containers em background (detached).
+            #    USA EXPLICITAMENTE o arquivo 'docker-compose.yml'.
+            #    Isso lerá a configuração atualizada (nomes, portas, args, etc.).
             echo ">>> Starting new containers..."
-            docker-compose up -d
+            docker-compose -f docker-compose.yml up -d
 
-            # 4. (Opcional, mas recomendado) Limpa imagens Docker antigas/não usadas (dangling)
+            # 4. (Opcional) Limpa imagens Docker antigas que não estão mais associadas a containers.
             echo ">>> Cleaning up dangling Docker images..."
             docker image prune -f
 
             echo ">>> Deployment finished successfully!"
+
+      # Você pode adicionar outras etapas aqui se necessário (ex: notificações)
