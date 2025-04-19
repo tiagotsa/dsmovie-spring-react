@@ -6,7 +6,7 @@ function Navbar() {
         <header>
             <nav className="container">
                 <div className="dsmovie-nav-content">
-                    <h1>TAMovies</h1>
+                    <h1>TMovies</h1>
                     <a href="https://github.com/tiagotsa">
                         <div className="dsmovie-contact-container">
                             <GithubIcon />

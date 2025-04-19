@@ -2,36 +2,63 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: ["main"] # Roda quando há push na branch main
+  workflow_dispatch: # Permite rodar manualmente
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Usa a última versão do Ubuntu como runner
 
     steps:
-      - uses: actions/checkout@v3
+      # 1. Obtém o código do seu repositório
+      - name: Checkout code
+        uses: actions/checkout@v3
 
+      # 2. Configura a chave SSH para conectar à VPS
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          # Adiciona a chave do host da VPS para evitar prompts manuais
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      # 3. Executa os comandos de deploy na VPS via SSH
       - name: Deploy to VPS
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} '
-            cd ~/dsmovie-spring-react &&
-            git fetch origin main &&
-            git reset --hard origin/main &&
-            
-            printf "POSTGRES_DB=tsmovie\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=1234\nSPRING_PROFILES_ACTIVE=prod\nREACT_APP_BACKEND_URL=http://filmestsa.shop/api\nCACHEBUST=$(date +%%s)\n" > .env &&
-            
-            docker-compose -f docker-compose.prod.yml down &&
-            docker system prune -af --volumes &&
-            CACHEBUST=$(date +%s) docker-compose -f docker-compose.prod.yml up -d --build
-          '
+        uses: appleboy/ssh-action@v1.0.3 # Action popular para SSH
+        with:
+          host: ${{ secrets.VPS_HOST }} # IP ou hostname da VPS (definido nos Secrets do repo)
+          username: ${{ secrets.VPS_USERNAME }} # Usuário SSH (ex: root) (definido nos Secrets)
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Chave privada SSH (definida nos Secrets)
+          script: |
+            # Navega para o diretório do projeto na VPS
+            echo ">>> Navigating to project directory..."
+            cd /root/dsmovie-spring-react || exit 1 # Garante que o diretório existe, senão falha
+
+            # Puxa as últimas alterações do Git (branch main)
+            echo ">>> Pulling latest changes from Git..."
+            git fetch origin main
+            git reset --hard origin/main # Garante que a cópia local seja idêntica à remota
+
+            # --- CONSTRUÇÃO E DEPLOY COM DOCKER COMPOSE ---
+
+            # 1. Constrói as imagens (se necessário) usando o docker-compose.yml principal
+            #    Isso vai usar os build args (REACT_APP_API_URL) definidos nele.
+            echo ">>> Building Docker images..."
+            docker-compose build
+
+            # 2. Para e remove os containers e redes definidos no docker-compose.yml atual
+            #    Essencial para evitar conflitos de nome e aplicar novas configs/imagens.
+            echo ">>> Stopping and removing old containers..."
+            docker-compose down
+
+            # 3. Sobe os novos containers em background usando as imagens recém-construídas
+            #    e a configuração do docker-compose.yml atual.
+            echo ">>> Starting new containers..."
+            docker-compose up -d
+
+            # 4. (Opcional, mas recomendado) Limpa imagens Docker antigas/não usadas (dangling)
+            echo ">>> Cleaning up dangling Docker images..."
+            docker image prune -f
+
+            echo ">>> Deployment finished successfully!"
